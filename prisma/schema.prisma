@@ -5,3 +5,308 @@ generator client {
 datasource db {
   provider = "mysql"
 }
+
+// ==========================================
+// 1. ENUMERATIONS
+// ==========================================
+
+enum Role {
+  BUYER
+  ADMIN
+  SUPERADMIN
+}
+
+enum VerificationStatus {
+  UNVERIFIED
+  PENDING
+  VERIFIED
+  REJECTED
+}
+
+enum StockStatus {
+  READY_STOCK
+  INDENT
+  OUT_OF_STOCK
+}
+
+enum MediaType {
+  IMAGE
+  VIDEO
+}
+
+enum RfqStatus {
+  PENDING
+  PROCESSED
+  QUOTATION_SENT
+  CANCELLED
+}
+
+// ==========================================
+// 2. USER MANAGEMENT
+// ==========================================
+
+model User {
+  id                 String             @id @default(uuid())
+  username           String?            @unique
+  customBuyerId      String?            @unique
+  name               String
+  email              String             @unique
+  password           String
+  phone              String?
+  avatar             String?            @db.Text
+
+  role               Role               @default(BUYER)
+  verificationStatus VerificationStatus @default(UNVERIFIED)
+
+  companyName        String?
+  companyAddress     String?            @db.Text
+  position           String?
+
+  savedItems         SavedItem[]
+  cartItems          CartItem[]
+  rfqRequests        RfqRequest[]
+  activityLogs       ActivityLog[]
+
+  createdAt          DateTime           @default(now())
+  updatedAt          DateTime           @updatedAt
+}
+
+// ==========================================
+// 3. PRODUCT CATALOG
+// ==========================================
+
+model Brand {
+  id       String    @id @default(uuid())
+  name     String    @unique
+  logo     String?   @db.Text
+  products Product[]
+}
+
+model Category {
+  id        String     @id @default(uuid())
+  name      String
+  slug      String     @unique
+  icon      String?
+  parentId  String?
+  parent    Category?  @relation("CategoryToParent", fields: [parentId], references: [id])
+  children  Category[] @relation("CategoryToParent")
+  products  Product[]
+  createdAt DateTime   @default(now())
+}
+
+model Product {
+  id          String      @id @default(uuid())
+  sku         String      @unique
+  name        String
+  slug        String      @unique
+  stockStatus StockStatus @default(READY_STOCK)
+  isPublished Boolean     @default(true)
+
+  currency  String  @default("IDR")
+  price     Decimal @db.Decimal(15, 2)
+  priceNote String? @db.Text
+
+  categoryId String
+  category   Category @relation(fields: [categoryId], references: [id])
+  brandId    String?
+  brand      Brand?   @relation(fields: [brandId], references: [id])
+
+  media          ProductMedia[]
+  features       ProductFeature[]
+  documents      ProductDocument[]
+  specifications ProductSpecification[]
+  savedByUsers   SavedItem[]
+  cartItems      CartItem[]
+  rfqItems       RfqItem[]
+  reviews        ProductReview[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([categoryId])
+  @@index([isPublished])
+}
+
+model ProductMedia {
+  id        String    @id @default(uuid())
+  productId String
+  product   Product   @relation(fields: [productId], references: [id], onDelete: Cascade)
+  url       String    @db.Text
+  type      MediaType @default(IMAGE)
+  isPrimary Boolean   @default(false)
+  sortOrder Int       @default(0)
+}
+
+model ProductFeature {
+  id        String  @id @default(uuid())
+  productId String
+  product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  text      String  @db.Text
+  sortOrder Int     @default(0)
+}
+
+model ProductDocument {
+  id        String  @id @default(uuid())
+  productId String
+  product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  title     String
+  subtitle  String?
+  fileUrl   String  @db.Text
+}
+
+model ProductSpecification {
+  id        String  @id @default(uuid())
+  productId String
+  product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  attribute String
+  value     String  @db.Text
+  sortOrder Int     @default(0)
+}
+
+// ==========================================
+// 4. BUYER INTERACTIONS
+// ==========================================
+
+model SavedItem {
+  id        String   @id @default(uuid())
+  userId    String?
+  user      User?    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  productId String
+  product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@unique([userId, productId])
+}
+
+model CartItem {
+  id        String   @id @default(uuid())
+  userId    String?
+  user      User?    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  productId String
+  product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  quantity  Int      @default(1)
+  variant   String?
+  note      String?  @db.Text
+  createdAt DateTime @default(now())
+}
+
+// ==========================================
+// 5. RFQ
+// ==========================================
+
+model RfqRequest {
+  id             String    @id @default(uuid())
+  rfqNumber      String    @unique
+  picName        String
+  companyName    String
+  phoneNumber    String
+  companyAddress String    @db.Text
+  totalEstimated Decimal   @db.Decimal(15, 2)
+  status         RfqStatus @default(PENDING)
+
+  userId String?
+  user   User?   @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  items RfqItem[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model RfqItem {
+  id           String     @id @default(uuid())
+  rfqRequestId String
+  rfqRequest   RfqRequest @relation(fields: [rfqRequestId], references: [id], onDelete: Cascade)
+  productId    String
+  product      Product    @relation(fields: [productId], references: [id])
+
+  productName String
+  productSku  String
+  quantity    Int
+  variant     String?
+  price       Decimal @db.Decimal(15, 2)
+  note        String? @db.Text
+}
+
+// ==========================================
+// 6. AUDIT
+// ==========================================
+
+model ActivityLog {
+  id        String   @id @default(uuid())
+  userId    String?
+  user      User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  action    String
+  details   String?  @db.Text
+  ipAddress String?
+  createdAt DateTime @default(now())
+}
+
+// ==========================================
+// 7. CMS / SHOP (tetap dipakai storefront)
+// ==========================================
+
+model Article {
+  id          String   @id @default(uuid())
+  slug        String   @unique
+  category    String
+  title       String
+  excerpt     String?  @db.Text
+  body        String?  @db.LongText
+  imageUrl    String   @db.Text
+  publishedAt DateTime
+  readMinutes Int      @default(5)
+  published   Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model SiteSetting {
+  id                 String  @id @default("default")
+  brandName          String
+  phoneDisplay       String
+  phoneTel           String
+  email              String
+  salesEmail         String
+  showroomHeroImage  String? @db.Text
+  mapImageUrl        String? @db.Text
+  hoursWeekdayLabel  String?
+  hoursWeekdayValue  String?
+  hoursSaturdayLabel String?
+  hoursSaturdayValue String?
+  hoursSundayLabel   String?
+  hoursSundayValue   String?
+  headOfficeTitle    String?
+  headOfficeLines    Json?
+  showroomTitle      String?
+  showroomLines      Json?
+}
+
+model QuickFilter {
+  id        String  @id @default(uuid())
+  label     String  @unique
+  sortOrder Int     @default(0)
+  active    Boolean @default(true)
+}
+
+model Faq {
+  id        String   @id @default(uuid())
+  question  String   @db.VarChar(500)
+  answer    String   @db.Text
+  sortOrder Int      @default(0)
+  published Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model ProductReview {
+  id         String   @id @default(uuid())
+  productId  String?
+  product    Product? @relation(fields: [productId], references: [id], onDelete: SetNull)
+  authorName String
+  rating     Int      @default(5)
+  content    String   @db.Text
+  published  Boolean  @default(true)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+}

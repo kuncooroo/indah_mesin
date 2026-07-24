@@ -1,37 +1,24 @@
-import type { LucideIcon } from "lucide-react";
-import {
-  Bolt,
-  Factory,
-  Package,
-  Cpu,
-  Sprout,
-  UtensilsCrossed,
-  Hammer,
-  Soup,
-  Truck,
-} from "lucide-react";
-
 export interface MainCategory {
   id: string;
   name: string;
-  icon: LucideIcon;
+  icon: string;
 }
 
 export const mainCategories: MainCategory[] = [
-  { id: "cnc", name: "Mesin CNC", icon: Cpu },
-  { id: "packaging", name: "Packaging & Labeling", icon: Package },
-  { id: "pertanian", name: "Mesin Pertanian", icon: Sprout },
-  { id: "food", name: "Food Processing", icon: UtensilsCrossed },
-  { id: "wood", name: "Woodworking", icon: Hammer },
-  { id: "power", name: "Power Generators", icon: Bolt },
+  { id: "cnc", name: "Mesin CNC", icon: "precision_manufacturing" },
+  { id: "packaging", name: "Packaging & Labeling", icon: "inventory_2" },
+  { id: "pertanian", name: "Mesin Pertanian", icon: "agriculture" },
+  { id: "food", name: "Food Processing", icon: "restaurant" },
+  { id: "wood", name: "Woodworking", icon: "carpenter" },
+  { id: "power", name: "Power Generators", icon: "bolt" },
 ];
 
 export const filterCategories = [
-  { id: "cnc", name: "Mesin CNC", icon: Factory },
-  { id: "packaging", name: "Packaging", icon: Package },
-  { id: "pertanian", name: "Pertanian", icon: Sprout },
-  { id: "food", name: "Food Processing", icon: Soup },
-  { id: "logistik", name: "Logistik", icon: Truck },
+  { id: "cnc", name: "Mesin CNC", icon: "precision_manufacturing" },
+  { id: "packaging", name: "Packaging", icon: "package_2" },
+  { id: "pertanian", name: "Pertanian", icon: "agriculture" },
+  { id: "food", name: "Food Processing", icon: "soup_kitchen" },
+  { id: "logistik", name: "Logistik", icon: "factory" },
 ];
 
 export const quickFilters = [

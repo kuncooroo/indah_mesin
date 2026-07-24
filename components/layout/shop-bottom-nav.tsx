@@ -1,44 +1,152 @@
 "use client";
 
+
+
 import Link from "next/link";
+
 import { usePathname } from "next/navigation";
-import { Bookmark, Home, LayoutGrid, MessageCircle } from "lucide-react";
+
+import { Ms } from "@/components/stitch/ms";
+
+import { SHOP_MOBILE_WIDTH } from "@/lib/shop-viewport";
+
 import { cn } from "@/lib/utils";
 
+
+
 const navItems = [
-  { href: "/home", label: "Home", icon: Home },
-  { href: "/categories", label: "Categories", icon: LayoutGrid },
-  { href: "/favorites", label: "Saved", icon: Bookmark },
-  { href: "/contact", label: "Contact", icon: MessageCircle },
+
+  { href: "/beranda-artikel", label: "Home", icon: "home" as const },
+
+  { href: "/categories", label: "Categories", icon: "category" as const },
+
+  { href: "/favorites", label: "Saved", icon: "bookmark" as const },
+
+  { href: "/contact", label: "Contact", icon: "chat_bubble" as const },
+
 ];
 
-export function ShopBottomNav() {
-  const pathname = usePathname();
+
+
+function BottomNavInner({ pathname }: { pathname: string }) {
+
+  const isProfile = pathname === "/profile";
+
+  const items = isProfile
+
+    ? [...navItems, { href: "/profile", label: "Profile", icon: "person" as const }]
+
+    : navItems;
+
+
 
   return (
-    <nav className="fixed inset-x-0 bottom-0 z-50 flex h-16 items-center justify-around border-t border-border-subtle bg-surface shadow-lg safe-bottom">
-      <div className="mx-auto flex w-full max-w-lg justify-around px-2">
-        {navItems.map(({ href, label, icon: Icon }) => {
-          const active =
-            pathname === href || pathname.startsWith(`${href}/`);
 
-          return (
-            <Link
-              key={href}
-              href={href}
+    <>
+
+      {items.map(({ href, label, icon }) => {
+
+        const active =
+
+          pathname === href ||
+
+          pathname.startsWith(`${href}/`) ||
+
+          (href === "/beranda-artikel" && pathname === "/home");
+
+
+
+        const isSaved = href === "/favorites" && active;
+
+        const isProfileTab = href === "/profile" && active;
+
+
+
+        return (
+
+          <Link
+
+            key={href}
+
+            href={href}
+
+            className={cn(
+
+              "flex flex-col items-center justify-center transition-transform",
+
+              active
+
+                ? "scale-95 rounded-xl bg-secondary-container/20 px-3 py-1 text-primary"
+
+                : "text-on-surface-variant transition-colors hover:text-primary active:scale-90"
+
+            )}
+
+          >
+
+            <Ms name={icon} fill={active} />
+
+            <span
+
               className={cn(
-                "flex flex-col items-center justify-center px-3 py-1 text-sm transition-colors",
-                active
-                  ? "scale-95 rounded-xl bg-secondary-container/20 text-primary"
-                  : "text-on-surface-variant hover:text-primary"
+
+                "text-body-sm",
+
+                (isSaved || isProfileTab) && active && "font-bold",
+
+                isProfile && !isProfileTab && "mt-0.5"
+
               )}
+
             >
-              <Icon className={cn("size-5", active && "fill-primary/20")} />
-              <span>{label}</span>
-            </Link>
-          );
-        })}
-      </div>
-    </nav>
+
+              {label}
+
+            </span>
+
+          </Link>
+
+        );
+
+      })}
+
+    </>
+
   );
+
 }
+
+
+
+export function ShopBottomNav() {
+
+  const pathname = usePathname();
+
+
+
+  return (
+
+    <div className="pointer-events-none fixed inset-x-0 bottom-0 z-50 flex justify-center">
+
+      <nav
+
+        className={cn(
+
+          "pointer-events-auto flex h-16 w-full items-center justify-around border-t border-border-subtle bg-surface shadow-lg",
+
+          SHOP_MOBILE_WIDTH
+
+        )}
+
+      >
+
+        <BottomNavInner pathname={pathname} />
+
+      </nav>
+
+    </div>
+
+  );
+
+}
+

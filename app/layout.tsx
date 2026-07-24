@@ -26,11 +26,8 @@ export const metadata: Metadata = {
     statusBarStyle: "default",
     title: "Indah Mesin",
   },
-  icons: {
-    icon: [
-      { url: "/icons/icon-192.png", sizes: "192x192", type: "image/png" },
-      { url: "/icons/icon-512.png", sizes: "512x512", type: "image/png" },
-    ],
+    icons: {
+    icon: [{ url: "/icon.svg", type: "image/svg+xml" }],
     apple: [{ url: "/icons/icon-192.png", sizes: "192x192" }],
   },
 };
@@ -50,10 +47,16 @@ export default function RootLayout({
   return (
     <html
       lang="id"
-      className={`${ibmPlexSans.variable} ${jetbrainsMono.variable} h-full antialiased`}
+      className={`${ibmPlexSans.variable} ${jetbrainsMono.variable} light h-full`}
       suppressHydrationWarning
     >
-      <body className="min-h-full bg-surface font-sans text-on-surface">
+      <head>
+        <link
+          href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0..1,0&display=swap"
+          rel="stylesheet"
+        />
+      </head>
+      <body className="min-h-full bg-metallic-bg font-body-md text-on-surface selection:bg-primary-container selection:text-on-primary-container">
         <AppProviders>
           {children}
           <ServiceWorkerRegister />

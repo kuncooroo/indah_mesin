@@ -6,7 +6,7 @@ export default function manifest(): MetadataRoute.Manifest {
     short_name: "Indah Mesin",
     description:
       "PWA Marketplace mesin industri B2B — pemesanan via WhatsApp",
-    start_url: "/home",
+    start_url: "/beranda-artikel",
     display: "standalone",
     orientation: "portrait",
     background_color: "#faf8ff",
