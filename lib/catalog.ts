@@ -1,5 +1,5 @@
 import type { Product, ProductStatus } from "@/lib/products";
-import { products as staticProducts } from "@/lib/products";
+import { products as staticProducts, getProductBySku } from "@/lib/products";
 import { stitchSavedSkus } from "@/lib/stitch-screens";
 import { prisma } from "@/lib/prisma";
 import type { Prisma, StockStatus } from "@prisma/client";
@@ -47,6 +47,23 @@ function stockLabel(status: StockStatus): string {
   }
 }
 
+function enrichFromStatic(product: Product): Product {
+  const ref = getProductBySku(product.sku);
+  if (!ref) return product;
+  return {
+    ...product,
+    image: product.image || ref.image,
+    gallery: product.gallery?.length ? product.gallery : ref.gallery,
+    features: product.features?.length ? product.features : ref.features,
+    specs: product.specs?.length ? product.specs : ref.specs,
+    priceLabel: product.priceLabel || ref.priceLabel,
+    priceNote: product.priceNote ?? ref.priceNote,
+    statusLabel: product.statusLabel ?? ref.statusLabel,
+    savedPriceNote: ref.savedPriceNote,
+    savedSecondaryAction: ref.savedSecondaryAction,
+  };
+}
+
 export function mapDbProduct(row: ProductRow): Product {
   const primary =
     row.media.find((m) => m.isPrimary) ?? row.media.sort((a, b) => a.sortOrder - b.sortOrder)[0];
@@ -55,7 +72,7 @@ export function mapDbProduct(row: ProductRow): Product {
     .sort((a, b) => a.sortOrder - b.sortOrder)
     .map((m) => m.url);
 
-  return {
+  const mapped: Product = {
     id: row.id,
     sku: row.sku,
     name: row.name,
@@ -73,6 +90,7 @@ export function mapDbProduct(row: ProductRow): Product {
       .sort((a, b) => a.sortOrder - b.sortOrder)
       .map((s) => ({ label: s.attribute, value: s.value })),
   };
+  return enrichFromStatic(mapped);
 }
 
 const productInclude = {
@@ -126,7 +144,8 @@ export async function findProductById(id: string): Promise<Product | undefined> 
   } catch {
     /* fallback */
   }
-  return staticProducts.find((p) => p.id === id || p.sku === id);
+  const staticMatch = staticProducts.find((p) => p.id === id || p.sku === id);
+  return staticMatch ? enrichFromStatic(staticMatch) : undefined;
 }
 
 export async function findProductBySku(sku: string): Promise<Product | undefined> {
@@ -143,13 +162,18 @@ export async function getSavedProducts(): Promise<Product[]> {
       take: 50,
     });
     if (rows.length > 0) {
-      return rows.map((r) => mapDbProduct(r.product));
+      const mapped = rows.map((r) => mapDbProduct(r.product));
+      const order = stitchSavedSkus as readonly string[];
+      return order
+        .map((sku) => mapped.find((p) => p.sku === sku))
+        .filter((p): p is Product => Boolean(p));
     }
   } catch {
     /* fallback */
   }
   const all = await listPublishedProducts();
-  return all.filter((p) => (stitchSavedSkus as readonly string[]).includes(p.sku));
+  const filtered = all.filter((p) => (stitchSavedSkus as readonly string[]).includes(p.sku));
+  return filtered.map(enrichFromStatic);
 }
 
 export { stitchSavedSkus };

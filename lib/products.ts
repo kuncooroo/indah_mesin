@@ -66,7 +66,7 @@ export const products: Product[] = [
         label: "Control System",
         value: "Siemens PLC Touch Screen Interface",
       },
-      { label: "Dimensions", value: "2,200 x 1,400 x 1,800 mm" },
+      { label: "Dimensions", value: "2,200 x 1,400 x 1,000 mm" },
       { label: "Warranty", value: "2 Years Parts & Service" },
     ],
   },

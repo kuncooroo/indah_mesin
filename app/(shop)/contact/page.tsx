@@ -2,6 +2,7 @@ import Image from "next/image";
 import { Ms } from "@/components/stitch/ms";
 import { IndustrialTopBar } from "@/components/shop/industrial-top-bar";
 import { WHATSAPP_ADMIN } from "@/lib/design-tokens";
+import { indahMesinContact } from "@/lib/contact";
 
 const SHOWROOM_HERO =
   "https://lh3.googleusercontent.com/aida-public/AB6AXuAey2gcnHGL0q9doYp4OrN_6OM1FzkEf1Ckr0A6afUAb7pBiV6eW4oluO2eFaDiw2niZFsmH2bGu8TcW508voJiIH0CbAPfr4XPdCohYO0oyW_wE-lvu02Vic9VkYIPxS1Ra5JVQpFIHxBBBcMX0JvbzYm71Q6_gmlBPZpziILBJEJvojBdlJOICTOEW4S5o16F4Hs9XdopN81ZpIW-XhEohGLYYcBRXdwbKj2q0545CFTICEbUU5iOu59SWjI4wZheTgszulyWOKS2";
@@ -22,13 +23,17 @@ function WaChatIcon() {
 }
 
 export default function ContactPage() {
+  const phoneDisplay = indahMesinContact.phoneDisplay;
+  const phoneTel = indahMesinContact.phoneTel.replace(/\s/g, "");
+  const salesEmail = indahMesinContact.salesEmail;
+
   return (
     <>
       <IndustrialTopBar variant="contact" />
 
-      <main className="mx-auto max-w-7xl pb-24">
-        <section className="relative h-64 w-full overflow-hidden md:h-[400px]">
-          <div className="absolute inset-0 z-10 bg-gradient-to-t from-primary/60 to-transparent" />
+      <main className="pb-24">
+        <section className="relative h-56 w-full overflow-hidden">
+          <div className="absolute inset-0 z-10 bg-gradient-to-t from-primary/70 via-primary/20 to-transparent" />
           <Image
             src={SHOWROOM_HERO}
             alt="IndustrialX showroom"
@@ -37,183 +42,172 @@ export default function ContactPage() {
             sizes="430px"
             priority
           />
-          <div className="absolute bottom-0 left-0 z-20 p-margin-mobile text-white md:p-margin-desktop">
-            <h2 className="mb-2 font-headline-lg text-headline-lg md:text-5xl">
+          <div className="absolute bottom-0 left-0 z-20 p-margin-mobile text-white">
+            <h2 className="mb-2 font-headline-lg text-2xl font-bold leading-tight">
               Visit Our Showroom
             </h2>
-            <p className="max-w-2xl font-body-lg text-body-lg opacity-90">
-              Experience precision engineering in person. Our technical experts are ready to
-              provide live demonstrations.
+            <p className="max-w-sm text-body-md leading-relaxed opacity-95">
+              Experience precision engineering in person. Our technical experts are ready to provide
+              live demonstrations.
             </p>
           </div>
         </section>
 
-        <div className="grid grid-cols-1 gap-gutter px-margin-mobile py-section-gap md:gap-8 md:px-margin-desktop lg:grid-cols-12">
-          <div className="space-y-8 lg:col-span-5">
-            <div className="whatsapp-shadow rounded-xl border border-border-subtle bg-white p-6">
-              <h3 className="mb-4 flex items-center gap-2 font-headline-md text-primary">
-                <Ms name="forum" fill />
-                Instant Assistance
-              </h3>
-              <p className="mb-6 font-body-md text-on-surface-variant">
-                Connect with our sales department immediately for pricing, stock availability,
-                and technical specs.
+        <div className="space-y-6 px-margin-mobile py-6">
+          <div className="rounded-xl border border-border-subtle bg-white p-5 shadow-sm">
+            <h3 className="mb-3 flex items-center gap-2 font-headline-md text-base font-bold text-primary">
+              <Ms name="forum" fill />
+              Instant Assistance
+            </h3>
+            <p className="mb-5 text-body-md leading-relaxed text-on-surface-variant">
+              Connect with our sales department immediately for pricing, stock availability, and
+              technical specs.
+            </p>
+            <a
+              href={waHref}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex w-full items-center justify-center gap-3 rounded-lg bg-[#25D366] px-6 py-4 text-sm font-bold text-white shadow-md transition-all hover:brightness-105 active:scale-[0.98]"
+            >
+              <WaChatIcon />
+              Chat via WhatsApp
+            </a>
+          </div>
+
+          <a
+            href={`tel:${phoneTel}`}
+            className="flex items-start gap-4 rounded-xl border border-border-subtle bg-surface-container p-4 transition-colors active:bg-surface-container-high"
+          >
+            <Ms name="call" className="mt-0.5 text-2xl text-primary" />
+            <div>
+              <p className="font-label-technical text-[10px] font-bold uppercase tracking-wide text-primary">
+                Head Office
               </p>
-              <a
-                href={waHref}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex scale-100 items-center justify-center gap-3 rounded-lg bg-whatsapp px-6 py-4 font-button-text text-white transition-all hover:brightness-105 active:scale-95"
-              >
-                <WaChatIcon />
-                Chat via WhatsApp
-              </a>
+              <p className="mt-1 font-headline-md text-lg font-bold text-on-surface">{phoneDisplay}</p>
             </div>
+          </a>
 
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-              <a
-                href="tel:+62215558900"
-                className="cursor-pointer rounded-lg border border-border-subtle bg-surface-container p-4 transition-colors hover:bg-surface-container-high"
-              >
-                <Ms name="call" className="mb-2 text-primary" />
-                <div className="font-label-technical text-[10px] uppercase text-primary">
-                  Head Office
-                </div>
-                <div className="font-headline-md text-headline-md">+62 21 555 8900</div>
-              </a>
-              <a
-                href="mailto:sales@indux.com"
-                className="cursor-pointer rounded-lg border border-border-subtle bg-surface-container p-4 transition-colors hover:bg-surface-container-high"
-              >
-                <Ms name="mail" className="mb-2 text-primary" />
-                <div className="font-label-technical text-[10px] uppercase text-primary">
-                  Sales Inquiry
-                </div>
-                <div className="font-headline-md text-headline-md">sales@indux.com</div>
-              </a>
+          <a
+            href={`mailto:${salesEmail}`}
+            className="flex items-start gap-4 rounded-xl border border-border-subtle bg-surface-container p-4 transition-colors active:bg-surface-container-high"
+          >
+            <Ms name="mail" className="mt-0.5 text-2xl text-primary" />
+            <div>
+              <p className="font-label-technical text-[10px] font-bold uppercase tracking-wide text-primary">
+                Sales Inquiry
+              </p>
+              <p className="mt-1 font-headline-md text-lg font-bold text-on-surface">{salesEmail}</p>
             </div>
+          </a>
 
-            <div className="overflow-hidden rounded-xl border border-border-subtle bg-white">
-              <div className="flex items-center gap-2 bg-primary p-4 text-white">
-                <Ms name="schedule" />
-                <span className="font-headline-md">Showroom Schedule</span>
-              </div>
-              <table className="w-full text-left">
-                <tbody className="divide-y divide-border-subtle">
-                  <tr className="bg-metallic-bg">
-                    <td className="px-6 py-3 font-body-md text-on-surface">Monday - Friday</td>
-                    <td className="px-6 py-3 text-right font-label-technical text-primary">
-                      08:00 - 17:00
-                    </td>
-                  </tr>
-                  <tr>
-                    <td className="px-6 py-3 font-body-md text-on-surface">Saturday</td>
-                    <td className="px-6 py-3 text-right font-label-technical text-primary">
-                      09:00 - 14:00
-                    </td>
-                  </tr>
-                  <tr className="bg-white">
-                    <td className="px-6 py-3 font-body-md text-on-surface">Sunday &amp; Holidays</td>
-                    <td className="px-6 py-3 text-right font-label-technical text-error">
-                      Closed
-                    </td>
-                  </tr>
-                </tbody>
-              </table>
+          <div className="overflow-hidden rounded-xl border border-border-subtle bg-white shadow-sm">
+            <div className="flex items-center gap-2 bg-primary px-4 py-3.5 text-white">
+              <Ms name="schedule" />
+              <span className="font-semibold">Showroom Schedule</span>
+            </div>
+            <table className="w-full text-left text-sm">
+              <tbody className="divide-y divide-border-subtle">
+                <tr className="bg-metallic-bg">
+                  <td className="px-4 py-3 text-on-surface">{indahMesinContact.hours.weekday.label}</td>
+                  <td className="px-4 py-3 text-right font-label-technical font-medium text-primary">
+                    {indahMesinContact.hours.weekday.value}
+                  </td>
+                </tr>
+                <tr>
+                  <td className="px-4 py-3 text-on-surface">{indahMesinContact.hours.saturday.label}</td>
+                  <td className="px-4 py-3 text-right font-label-technical font-medium text-primary">
+                    {indahMesinContact.hours.saturday.value}
+                  </td>
+                </tr>
+                <tr>
+                  <td className="px-4 py-3 text-on-surface">{indahMesinContact.hours.sunday.label}</td>
+                  <td className="px-4 py-3 text-right font-label-technical font-medium text-error">
+                    {indahMesinContact.hours.sunday.value}
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div className="space-y-5">
+            <div>
+              <h4 className="mb-2 flex items-center gap-2 font-semibold text-primary">
+                <Ms name="location_on" fill />
+                Head Office
+              </h4>
+              <p className="text-body-md leading-relaxed text-on-surface-variant">
+                Central Business District, Tower A, 24th Floor
+                <br />
+                Jakarta Selatan, 12190
+              </p>
+            </div>
+            <div>
+              <h4 className="mb-2 flex items-center gap-2 font-semibold text-primary">
+                <Ms name="factory" fill />
+                Warehouse &amp; Showroom
+              </h4>
+              <p className="text-body-md leading-relaxed text-on-surface-variant">
+                Industrial Zone III, Block C-12
+                <br />
+                Tangerang, Banten 15124
+              </p>
             </div>
           </div>
 
-          <div className="space-y-8 lg:col-span-7">
-            <div className="grid grid-cols-1 gap-gutter md:grid-cols-2">
-              <div className="space-y-2">
-                <h4 className="flex items-center gap-2 font-headline-md text-primary">
-                  <Ms name="location_on" fill />
-                  Head Office
-                </h4>
-                <p className="font-body-md text-on-surface-variant">
-                  Central Business District, Tower A, 24th Floor
-                  <br />
-                  Jakarta Selatan, 12190
-                </p>
-              </div>
-              <div className="space-y-2">
-                <h4 className="flex items-center gap-2 font-headline-md text-primary">
-                  <Ms name="factory" fill />
-                  Warehouse &amp; Showroom
-                </h4>
-                <p className="font-body-md text-on-surface-variant">
-                  Industrial Zone III, Block C-12
-                  <br />
-                  Tangerang, Banten 15124
-                </p>
-              </div>
+          <div className="relative aspect-[4/3] overflow-hidden rounded-xl border border-border-subtle">
+            <div
+              className="absolute inset-0 bg-cover bg-center"
+              style={{ backgroundImage: `url('${MAP_BG}')` }}
+            />
+            <div className="absolute left-3 top-3 flex items-center gap-2 rounded-md border border-border-subtle bg-white px-3 py-2 text-xs font-semibold shadow-md">
+              <Ms name="near_me" className="text-primary text-base" />
+              Get Directions
             </div>
-
-            <div className="group relative aspect-video overflow-hidden rounded-xl border border-border-subtle bg-surface-container md:aspect-auto md:h-[400px]">
-              <div
-                className="h-full w-full bg-cover bg-center transition-transform duration-700 group-hover:scale-105"
-                style={{ backgroundImage: `url('${MAP_BG}')` }}
-              />
-              <div className="pointer-events-none absolute inset-0 bg-black/5" />
-              <div className="absolute left-4 top-4 flex items-center gap-2 rounded-md border border-border-subtle bg-white p-2 shadow-md">
-                <Ms name="near_me" className="text-primary" />
-                <span className="text-body-sm font-semibold">Get Directions</span>
-              </div>
-              <div className="absolute bottom-4 right-4 flex flex-col gap-2">
-                <button
-                  type="button"
-                  className="flex h-10 w-10 items-center justify-center rounded border border-border-subtle bg-white shadow-md hover:bg-surface-variant"
-                >
-                  <Ms name="add" />
-                </button>
-                <button
-                  type="button"
-                  className="flex h-10 w-10 items-center justify-center rounded border border-border-subtle bg-white shadow-md hover:bg-surface-variant"
-                >
-                  <Ms name="remove" />
-                </button>
-              </div>
-              <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2">
-                <div className="relative">
-                  <Ms
-                    name="location_on"
-                    fill
-                    className="animate-bounce text-5xl text-primary drop-shadow-xl"
-                  />
-                  <div className="absolute left-1/2 top-12 -translate-x-1/2 whitespace-nowrap rounded bg-primary px-2 py-1 text-[10px] font-bold uppercase tracking-wider text-white">
-                    Showroom Location
-                  </div>
-                </div>
-              </div>
+            <div className="absolute bottom-3 right-3 flex flex-col gap-2">
+              <button
+                type="button"
+                className="flex h-9 w-9 items-center justify-center rounded border border-border-subtle bg-white shadow-md"
+                aria-label="Zoom in"
+              >
+                <Ms name="add" className="text-sm" />
+              </button>
+              <button
+                type="button"
+                className="flex h-9 w-9 items-center justify-center rounded border border-border-subtle bg-white shadow-md"
+                aria-label="Zoom out"
+              >
+                <Ms name="remove" className="text-sm" />
+              </button>
             </div>
+            <div className="absolute left-1/2 top-[45%] -translate-x-1/2 -translate-y-1/2 text-center">
+              <Ms name="location_on" fill className="text-5xl text-primary drop-shadow-lg" />
+              <span className="mt-1 inline-block rounded bg-primary px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider text-white">
+                Showroom Location
+              </span>
+            </div>
+          </div>
 
-            <div className="rounded-xl border border-border-subtle bg-surface-container p-6">
-              <div className="flex flex-col items-start gap-6 md:flex-row">
-                <div className="w-full md:w-1/3">
-                  <div className="flex aspect-square items-center justify-center rounded-lg bg-primary-container">
-                    <Ms name="build_circle" className="text-6xl text-on-primary-container" />
-                  </div>
-                </div>
-                <div className="w-full md:w-2/3">
-                  <h3 className="mb-2 font-headline-md text-primary">
-                    After-Sales &amp; Tech Support
-                  </h3>
-                  <p className="mb-4 font-body-md text-on-surface-variant">
-                    Our dedicated service team offers 24/7 technical consultation, preventive
-                    maintenance, and genuine spare parts sourcing to ensure your production never
-                    stops.
-                  </p>
-                  <div className="flex flex-wrap gap-2">
-                    {["24h Maintenance", "Operator Training", "OEM Parts"].map((tag) => (
-                      <span
-                        key={tag}
-                        className="rounded-full border border-border-subtle bg-white px-3 py-1 font-label-technical text-xs text-primary"
-                      >
-                        {tag}
-                      </span>
-                    ))}
-                  </div>
-                </div>
+          <div className="overflow-hidden rounded-xl border border-border-subtle bg-surface-container">
+            <div className="flex aspect-[2/1] items-center justify-center bg-primary-container">
+              <span className="flex h-20 w-20 items-center justify-center rounded-full bg-primary/10">
+                <Ms name="build_circle" className="text-5xl text-primary" fill />
+              </span>
+            </div>
+            <div className="p-5">
+              <h3 className="mb-2 text-base font-bold text-primary">After-Sales &amp; Tech Support</h3>
+              <p className="mb-4 text-body-md leading-relaxed text-on-surface-variant">
+                Our dedicated service team offers 24/7 technical consultation, preventive maintenance,
+                and genuine spare parts sourcing to ensure your production never stops.
+              </p>
+              <div className="flex flex-wrap gap-2">
+                {["24h Maintenance", "Operator Training", "OEM Parts"].map((tag) => (
+                  <span
+                    key={tag}
+                    className="rounded-full border border-border-subtle bg-white px-3 py-1 text-xs font-medium text-primary"
+                  >
+                    {tag}
+                  </span>
+                ))}
               </div>
             </div>
           </div>
