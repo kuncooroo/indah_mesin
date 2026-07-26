@@ -1,8 +1,11 @@
-import type { Prisma } from "@prisma/client";
-
 import { prisma } from "@/lib/prisma";
 
 import { parseAdminListParams, rowNumber } from "@/lib/admin/list-params";
+
+import {
+  adminCategoryListWhere,
+  sortCategoriesByCatalogSlug,
+} from "@/lib/marketplace-catalog";
 
 import { createCategory, updateCategory, deleteCategory } from "@/lib/admin-crud";
 
@@ -40,37 +43,28 @@ export default async function AdminCategoriesPage({ searchParams }: PageProps) {
 
   const params = parseAdminListParams(await searchParams);
 
-  const where: Prisma.CategoryWhereInput = params.q
-
-    ? {
-
-        OR: [{ name: { contains: params.q } }, { slug: { contains: params.q } }],
-
-      }
-
-    : {};
+  const where = adminCategoryListWhere(params.q);
 
 
 
-  const [total, rows, allCategories] = await Promise.all([
+  const [total, rawRows, allCategories] = await Promise.all([
 
     prisma.category.count({ where }),
 
+    prisma.category.findMany({ where }),
+
     prisma.category.findMany({
-
-      where,
-
+      where: adminCategoryListWhere(),
       orderBy: { name: "asc" },
-
-      skip: params.skip,
-
-      take: params.pageSize,
-
+      select: { id: true, name: true },
     }),
 
-    prisma.category.findMany({ orderBy: { name: "asc" }, select: { id: true, name: true } }),
-
   ]);
+
+  const rows = sortCategoriesByCatalogSlug(rawRows).slice(
+    params.skip,
+    params.skip + params.pageSize
+  );
 
 
 
@@ -82,7 +76,10 @@ export default async function AdminCategoriesPage({ searchParams }: PageProps) {
 
     <>
 
-      <AdminPageHeader title="Kategori" description="CRUD kategori marketplace." />
+      <AdminPageHeader
+        title="Kategori"
+        description="Empat kategori resmi toko — sama dengan tab katalog di halaman user."
+      />
 
       <AdminListShell
 

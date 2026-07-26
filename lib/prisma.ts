@@ -12,7 +12,28 @@ function createPrismaClient() {
   return new PrismaClient({ adapter });
 }
 
-export const prisma = globalForPrisma.prisma ?? createPrismaClient();
+/** Dev server caches global prisma — invalidate if client predates new models. */
+function isClientCurrent(client: PrismaClient) {
+  const c = client as PrismaClient & {
+    company?: { count: unknown };
+    order?: { count: unknown };
+  };
+  return typeof c.company?.count === "function" && typeof c.order?.count === "function";
+}
+
+function getPrismaClient() {
+  const cached = globalForPrisma.prisma;
+  if (cached && isClientCurrent(cached)) {
+    return cached;
+  }
+  const client = createPrismaClient();
+  if (process.env.NODE_ENV !== "production") {
+    globalForPrisma.prisma = client;
+  }
+  return client;
+}
+
+export const prisma = getPrismaClient();
 
 if (process.env.NODE_ENV !== "production") {
   globalForPrisma.prisma = prisma;

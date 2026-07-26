@@ -1,4 +1,5 @@
-import { SHOP_MOBILE_WIDTH } from "@/lib/shop-viewport";
+import { usePathname } from "next/navigation";
+import { shopCanvasClassName } from "@/lib/shop-layout-mode";
 import { cn } from "@/lib/utils";
 
 type ShopMobileFixedBarProps = {
@@ -7,12 +8,15 @@ type ShopMobileFixedBarProps = {
   bottomClass?: string;
 };
 
-/** Bar fixed bawah yang mengikuti lebar viewport mobile (Stitch), bukan full desktop. */
+/** Bar fixed bawah yang mengikuti lebar canvas shop (mobile / product detail). */
 export function ShopMobileFixedBar({
   children,
   className,
   bottomClass = "bottom-16",
 }: ShopMobileFixedBarProps) {
+  const pathname = usePathname();
+  const canvasClass = shopCanvasClassName(pathname);
+
   return (
     <div
       className={cn(
@@ -20,7 +24,7 @@ export function ShopMobileFixedBar({
         bottomClass
       )}
     >
-      <div className={cn("pointer-events-auto w-full", SHOP_MOBILE_WIDTH, className)}>
+      <div className={cn("pointer-events-auto w-full", canvasClass, className)}>
         {children}
       </div>
     </div>

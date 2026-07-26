@@ -1,5 +1,9 @@
-import { getAdminDashboardSummary } from "@/services/admin/get-dashboard-summary";
+import {
+  getAdminDashboardSummary,
+  getAdminDashboardInsights,
+} from "@/services/admin/get-dashboard-summary";
 import { ModuleSummaryTable } from "@/features/admin/components/module-summary-table";
+import { AdminDashboardInsights } from "@/components/admin/admin-dashboard-insights";
 import { AdminPageHeader } from "@/components/admin/admin-page-header";
 import { AdminListShell } from "@/components/admin/admin-list-shell";
 import { parseAdminListParams } from "@/lib/admin/list-params";
@@ -10,11 +14,15 @@ type PageProps = {
 
 export default async function AdminDashboardPage({ searchParams }: PageProps) {
   const params = parseAdminListParams(await searchParams);
-  let modules = await getAdminDashboardSummary();
+  const [modules, insights] = await Promise.all([
+    getAdminDashboardSummary(),
+    getAdminDashboardInsights(),
+  ]);
 
+  let filtered = modules;
   if (params.q) {
     const q = params.q.toLowerCase();
-    modules = modules.filter(
+    filtered = modules.filter(
       (m) =>
         m.label.toLowerCase().includes(q) ||
         m.stitchScreenTitle.toLowerCase().includes(q) ||
@@ -22,8 +30,8 @@ export default async function AdminDashboardPage({ searchParams }: PageProps) {
     );
   }
 
-  const total = modules.length;
-  const pageModules = modules.slice(params.skip, params.skip + params.pageSize);
+  const total = filtered.length;
+  const pageModules = filtered.slice(params.skip, params.skip + params.pageSize);
 
   return (
     <div className="space-y-8">
@@ -31,6 +39,7 @@ export default async function AdminDashboardPage({ searchParams }: PageProps) {
         title="Dashboard"
         description="Ringkasan modul — search & pagination."
       />
+      <AdminDashboardInsights data={insights} />
       <AdminListShell
         basePath="/admin/dashboard"
         q={params.q}

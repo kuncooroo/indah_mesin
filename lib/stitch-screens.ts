@@ -108,11 +108,10 @@ export const stitchArticles = [
   },
 ] as const;
 
-/** Kategori utama — screen Beranda Artikel (752245) */
+/** Kategori utama — selaras `MARKETPLACE_CATEGORIES` (fallback UI lama). */
 export const berandaMainCategories = [
-  { id: "sterilisasi", name: "Mesin Sterilisasi", icon: "cleaning_services" },
-  { id: "penutup-kaleng", name: "Mesin Penutup Kaleng", icon: "view_in_ar" },
-  { id: "seal-kemasan", name: "Mesin Seal Kemasan", icon: "inventory_2" },
-  { id: "konveyor", name: "Mesin Konveyor", icon: "conveyor_belt" },
-  { id: "produksi", name: "Mesin Produksi", icon: "factory" },
+  { id: "mesin-sterilisasi", name: "Mesin Sterilisasi", icon: "biotech" },
+  { id: "mesin-penutup-kaleng", name: "Mesin Penutup Kaleng", icon: "lunch_dining" },
+  { id: "mesin-seal-kemasan", name: "Mesin Seal Kemasan", icon: "inventory_2" },
+  { id: "mesin-produksi", name: "Mesin Produksi", icon: "precision_manufacturing" },
 ] as const;

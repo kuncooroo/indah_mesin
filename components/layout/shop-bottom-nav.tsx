@@ -8,7 +8,7 @@ import { usePathname } from "next/navigation";
 
 import { Ms } from "@/components/stitch/ms";
 
-import { SHOP_MOBILE_WIDTH } from "@/lib/shop-viewport";
+import { shopCanvasClassName, isPoCheckoutPath } from "@/lib/shop-layout-mode";
 
 import { cn } from "@/lib/utils";
 
@@ -30,7 +30,7 @@ const navItems = [
 
 function BottomNavInner({ pathname }: { pathname: string }) {
 
-  const isProfile = pathname === "/profile";
+  const isProfile = pathname === "/profile" || pathname.startsWith("/profile/");
 
   const items = isProfile
 
@@ -47,12 +47,10 @@ function BottomNavInner({ pathname }: { pathname: string }) {
       {items.map(({ href, label, icon }) => {
 
         const active =
-
           pathname === href ||
-
           pathname.startsWith(`${href}/`) ||
-
-          (href === "/beranda-artikel" && pathname === "/home");
+          (href === "/beranda-artikel" && pathname === "/home") ||
+          (href === "/contact" && isPoCheckoutPath(pathname));
 
 
 
@@ -87,17 +85,11 @@ function BottomNavInner({ pathname }: { pathname: string }) {
             <Ms name={icon} fill={active} />
 
             <span
-
               className={cn(
-
-                "text-body-sm",
-
-                (isSaved || isProfileTab) && active && "font-bold",
-
+                "text-[10px]",
+                (isSaved || isProfileTab || active) && "font-bold",
                 isProfile && !isProfileTab && "mt-0.5"
-
               )}
-
             >
 
               {label}
@@ -119,34 +111,20 @@ function BottomNavInner({ pathname }: { pathname: string }) {
 
 
 export function ShopBottomNav() {
-
   const pathname = usePathname();
-
-
+  const canvasClass = shopCanvasClassName(pathname);
 
   return (
-
-    <div className="pointer-events-none fixed inset-x-0 bottom-0 z-50 flex justify-center">
-
+    <div className="pointer-events-none fixed inset-x-0 bottom-0 z-40 flex justify-center">
       <nav
-
         className={cn(
-
           "pointer-events-auto flex h-16 w-full items-center justify-around border-t border-border-subtle bg-surface shadow-lg",
-
-          SHOP_MOBILE_WIDTH
-
+          canvasClass
         )}
-
       >
-
         <BottomNavInner pathname={pathname} />
-
       </nav>
-
     </div>
-
   );
-
 }
 

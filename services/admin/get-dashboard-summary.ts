@@ -1,6 +1,22 @@
 import { prisma } from "@/lib/prisma";
 
-import { safeFaqCount, safeProductReviewCount } from "@/lib/admin/safe-model-count";
+
+
+import {
+
+  safeFaqCount,
+
+  safeCompanyCount,
+
+  safeCompanyAddressCount,
+
+  safeOrderCount,
+
+  safeArchiveDocumentCount,
+
+} from "@/lib/admin/safe-model-count";
+
+
 
 import { listPublishedProducts } from "@/lib/catalog";
 
@@ -8,33 +24,47 @@ import { listPublishedArticles } from "@/lib/content";
 
 import { adminModuleRegistry } from "@/services/admin/module-registry";
 
-import type { AdminModuleSummary } from "@/types/admin/marketplace-module";
+import type { AdminDashboardInsight, AdminModuleSummary } from "@/types/admin/marketplace-module";
 
-import { mainCategories } from "@/lib/categories";
+import {
+  shopCatalogProductWhere,
+  shopCatalogCategoryWhere,
+} from "@/lib/marketplace-catalog";
+
+import { buyerRoles } from "@/lib/buyer-roles";
+
+
+
+export async function getAdminDashboardInsights(): Promise<AdminDashboardInsight> {
+
+  const [savedItemsTotal, legacyRfqTotal] = await Promise.all([
+
+    prisma.savedItem.count(),
+
+    prisma.rfqRequest.count(),
+
+  ]);
+
+  return { savedItemsTotal, legacyRfqTotal };
+
+}
 
 
 
 export async function getAdminDashboardSummary(): Promise<AdminModuleSummary[]> {
-
-  const marketplaceSlugs = mainCategories.map((c) => c.id);
-
-
-
   const [
-
     productPublishedDb,
-
-    productTotalDb,
-
-    categoryMarketplace,
-
-    categoryTotal,
-
+    productCatalogDb,
+    categoryCatalogDb,
     articlePublishedDb,
 
-    savedTotal,
+    orderTotal,
 
-    rfqTotal,
+    companyTotal,
+
+    addressTotal,
+
+    documentTotal,
 
     customerTotal,
 
@@ -48,27 +78,25 @@ export async function getAdminDashboardSummary(): Promise<AdminModuleSummary[]> 
 
     faqTotal,
 
-    reviewPublished,
-
-    reviewTotal,
-
   ] = await Promise.all([
 
-    prisma.product.count({ where: { isPublished: true } }),
+    prisma.product.count({ where: shopCatalogProductWhere }),
 
-    prisma.product.count(),
+    prisma.product.count({ where: shopCatalogProductWhere }),
 
-    prisma.category.count({ where: { slug: { in: marketplaceSlugs } } }),
-
-    prisma.category.count(),
+    prisma.category.count({ where: shopCatalogCategoryWhere }),
 
     prisma.article.count({ where: { published: true } }),
 
-    prisma.savedItem.count(),
+    safeOrderCount(),
 
-    prisma.rfqRequest.count(),
+    safeCompanyCount(),
 
-    prisma.user.count({ where: { role: "BUYER" } }),
+    safeCompanyAddressCount(),
+
+    safeArchiveDocumentCount(),
+
+    prisma.user.count({ where: { role: { in: buyerRoles } } }),
 
     prisma.user.count({ where: { role: { in: ["ADMIN", "SUPERADMIN"] } } }),
 
@@ -80,23 +108,20 @@ export async function getAdminDashboardSummary(): Promise<AdminModuleSummary[]> 
 
     safeFaqCount(),
 
-    safeProductReviewCount({ published: true }),
-
-    safeProductReviewCount(),
-
   ]);
 
 
 
   const productVisible = Math.max(productPublishedDb, shopProducts.length);
-
   const articleVisible = Math.max(articlePublishedDb, shopArticles.length);
+  const categoryMarketplace = categoryCatalogDb;
+  const categoryTotal = categoryCatalogDb;
 
 
 
   const counts: Record<string, { shopVisibleCount: number; databaseTotal: number }> = {
 
-    products: { shopVisibleCount: productVisible, databaseTotal: productTotalDb },
+    products: { shopVisibleCount: productVisible, databaseTotal: productCatalogDb },
 
     categories: {
 
@@ -106,6 +131,18 @@ export async function getAdminDashboardSummary(): Promise<AdminModuleSummary[]> 
 
     },
 
+    companies: {
+
+      shopVisibleCount: companyTotal,
+
+      databaseTotal: companyTotal + addressTotal + customerTotal,
+
+    },
+
+    orders: { shopVisibleCount: orderTotal, databaseTotal: orderTotal },
+
+    documents: { shopVisibleCount: documentTotal, databaseTotal: documentTotal },
+
     articles: {
 
       shopVisibleCount: articleVisible,
@@ -114,21 +151,7 @@ export async function getAdminDashboardSummary(): Promise<AdminModuleSummary[]> 
 
     },
 
-    reviews: {
-
-      shopVisibleCount: reviewPublished,
-
-      databaseTotal: reviewTotal,
-
-    },
-
     faq: { shopVisibleCount: faqPublished, databaseTotal: faqTotal },
-
-    rfq: { shopVisibleCount: rfqTotal, databaseTotal: rfqTotal },
-
-    favorites: { shopVisibleCount: savedTotal, databaseTotal: savedTotal },
-
-    customers: { shopVisibleCount: customerTotal, databaseTotal: customerTotal },
 
     admin: { shopVisibleCount: adminTotal, databaseTotal: adminTotal },
 

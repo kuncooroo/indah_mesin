@@ -1,306 +1,139 @@
+import Image from "next/image";
 import Link from "next/link";
 
-import Image from "next/image";
-
+import { ProfileLogoutButton } from "@/components/shop/profile/profile-logout-button";
+import { ProfileSettingsHeader } from "@/components/shop/profile/profile-settings-header";
 import { Ms } from "@/components/stitch/ms";
-
-
-
-const menuLinkClass =
-
-  "flex items-center justify-between rounded-xl border border-border-subtle bg-white p-4 transition-all hover:border-primary/30 active:scale-[0.98]";
-
-
+import { profileDemoUser } from "@/lib/profile-demo-data";
 
 export default function ProfilePage() {
+  const user = profileDemoUser;
 
   return (
-
     <>
-
-      <header className="fixed left-0 right-0 top-0 z-40 flex h-16 items-center justify-between border-b border-border-subtle bg-surface px-margin-mobile">
-
-        <Link
-
-          href="/beranda-artikel"
-
-          className="flex h-10 w-10 items-center justify-center rounded-full transition-colors hover:bg-surface-container"
-
-        >
-
-          <Ms name="arrow_back" className="text-primary" />
-
-        </Link>
-
-        <h1 className="font-headline-md text-headline-md font-bold text-primary">My Profile</h1>
-
-        <button
-
-          type="button"
-
-          className="flex h-10 w-10 items-center justify-center rounded-full transition-colors hover:bg-surface-container"
-
-        >
-
-          <Ms name="edit" className="text-primary" />
-
-        </button>
-
-      </header>
-
-
-
-      <main className="mx-auto max-w-2xl px-margin-mobile pb-24 pt-20">
-
-        <section className="mb-8 flex flex-col items-center">
-
-          <div className="relative mb-4">
-
-            <div className="h-32 w-32 overflow-hidden rounded-full border-4 border-primary-container shadow-xl">
-
-              <Image
-
-                src="https://lh3.googleusercontent.com/aida-public/AB6AXuCtTKLH6D5sgnWoHc5DaIFwdx-E0KHMwu_MYMUf8nMkIKlE38ozC3w_z-3zFg4gPZWmFOi25TF6eLiyXrMnZjqH1so1lQfbtIrs-CrlJ7tQDDlAoZmAaf7Dh-4h2Q3vd0GJdvpsnDa4UWkhoaVgVv6pwGQSpWamaMq-Twn_8dlYqRmqvdk5DXM3SLL6RhbZcWS4vOJZY2Kr7smo2-AhNQO-qy7JrmwesrC12k_fi9TYx8b3tZI5MAQ3Xf6jWX9-hM54LGbBZQnq-mtA"
-
-                alt="Budi Santoso"
-
-                width={128}
-
-                height={128}
-
-                className="h-full w-full object-cover"
-
-              />
-
+      <ProfileSettingsHeader backHref="/beranda-artikel" />
+      <main className="min-h-screen bg-background pt-16">
+        <div className="flex w-full flex-col pb-8">
+          <section className="flex flex-col items-center bg-gradient-to-b from-primary/5 to-transparent px-margin-mobile py-8 text-center">
+            <div className="group relative">
+              <div className="h-24 w-24 rounded-full bg-surface-container-highest p-1 shadow-sm">
+                <Image
+                  src={user.avatar}
+                  alt={user.name}
+                  width={96}
+                  height={96}
+                  className="h-full w-full rounded-full object-cover"
+                />
+              </div>
+              <Link
+                href="/profile/settings"
+                className="absolute bottom-0 right-0 flex h-8 w-8 items-center justify-center rounded-full bg-primary text-on-primary shadow-md transition-transform hover:scale-105"
+                aria-label="Edit profile"
+              >
+                <Ms name="edit" className="text-[18px]" />
+              </Link>
             </div>
-
-            <div className="absolute bottom-1 right-1 rounded-full border-2 border-surface bg-primary p-1.5 text-white shadow-md">
-
-              <Ms name="verified" className="text-[18px]" />
-
+            <div className="mt-4">
+              <h2 className="font-headline-lg-mobile text-headline-lg-mobile text-on-surface">
+                {user.name}
+              </h2>
+              <p className="mt-1 flex items-center justify-center gap-1.5 font-body-md text-on-surface-variant">
+                <Ms name="domain" className="text-[18px] text-primary" />
+                {user.company}
+              </p>
             </div>
+          </section>
 
-          </div>
-
-          <div className="text-center">
-
-            <h2 className="mb-1 font-headline-lg-mobile text-headline-lg-mobile text-on-background">
-
-              Budi Santoso
-
-            </h2>
-
-            <p className="mb-1 font-medium text-on-surface-variant">PT. Pangan Makmur Abadi</p>
-
-            <div className="flex items-center justify-center gap-2">
-
-              <span className="rounded bg-surface-container-high px-2 py-0.5 font-label-technical text-label-technical uppercase tracking-wider text-on-surface-variant">
-
-                ID: 25030024
-
+          <section className="grid grid-cols-2 gap-gutter px-margin-mobile">
+            <Link
+              href="/profile/orders"
+              className="group flex flex-col rounded-xl bg-surface-container-low p-4 text-left transition-colors hover:bg-surface-container"
+            >
+              <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10 transition-colors group-hover:bg-primary group-hover:text-on-primary">
+                <Ms name="shopping_cart" />
+              </div>
+              <span className="font-button-text text-button-text text-on-surface">MY ORDERS</span>
+              <span className="mt-1 font-label-technical text-label-technical text-primary">
+                {user.processedPoCount} PO Diproses
               </span>
-
-              <span className="inline-flex items-center gap-1 rounded bg-secondary-container/20 px-2 py-0.5 text-[12px] font-semibold text-secondary">
-
-                <span className="h-2 w-2 rounded-full bg-secondary" />
-
-                Verified Buyer
-
+            </Link>
+            <Link
+              href="/profile/docs"
+              className="group flex flex-col rounded-xl bg-surface-container-low p-4 text-left transition-colors hover:bg-surface-container"
+            >
+              <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10 transition-colors group-hover:bg-primary group-hover:text-on-primary">
+                <Ms name="description" />
+              </div>
+              <span className="font-button-text text-button-text text-on-surface">MY DOCS</span>
+              <span className="mt-1 font-label-technical text-label-technical text-primary">
+                {user.docCount} File PDF
               </span>
+            </Link>
+          </section>
 
-            </div>
-
-          </div>
-
-        </section>
-
-
-
-        <section className="bento-grid mb-8">
-
-          {[
-
-            { icon: "bookmark", label: "Saved Items", href: "/favorites" },
-
-            { icon: "history", label: "Orders", href: "#" },
-
-            { icon: "description", label: "Docs", href: "#" },
-
-          ].map(({ icon, label, href }) => (
+          <section className="mt-section-gap flex flex-col gap-1 px-margin-mobile">
+            <Link
+              href="/profile/settings"
+              className="flex items-center rounded-xl bg-surface-container-lowest p-4 text-left transition-colors hover:bg-surface-container-low"
+            >
+              <div className="flex h-10 w-10 items-center justify-center rounded-full text-on-surface-variant">
+                <Ms name="manage_accounts" />
+              </div>
+              <div className="ml-4 flex-1">
+                <div className="font-button-text text-button-text text-on-surface">
+                  Account Settings
+                </div>
+                <div className="line-clamp-1 font-body-sm text-body-sm text-on-surface-variant">
+                  Atur Foto, Nama, Email, Password, Alamat
+                </div>
+              </div>
+              <Ms name="chevron_right" className="text-outline" />
+            </Link>
 
             <Link
-
-              key={label}
-
-              href={href}
-
-              className="group flex flex-col items-center justify-center rounded-xl border border-border-subtle bg-surface-container-lowest p-4 transition-all duration-300 hover:bg-primary-container"
-
+              href="/profile/help"
+              className="flex items-center rounded-xl bg-surface-container-lowest p-4 text-left transition-colors hover:bg-surface-container-low"
             >
-
-              <div className="mb-2 flex h-12 w-12 items-center justify-center rounded-full bg-primary-container/10 transition-colors group-hover:bg-white/20">
-
-                <Ms name={icon} className="text-primary group-hover:text-white" />
-
+              <div className="flex h-10 w-10 items-center justify-center rounded-full text-on-surface-variant">
+                <Ms name="support_agent" />
               </div>
-
-              <span className="text-center font-body-sm text-body-sm text-on-surface-variant group-hover:text-white">
-
-                {label}
-
-              </span>
-
-            </Link>
-
-          ))}
-
-        </section>
-
-
-
-        <section className="mb-8 space-y-2">
-
-          <div className="mb-2 border-b border-border-subtle px-2 py-4 text-xs font-bold uppercase tracking-widest text-on-surface-variant">
-
-            Account Management
-
-          </div>
-
-          {[
-
-            { icon: "person_outline", label: "Account Settings", href: "#" },
-
-            { icon: "business", label: "Company Profile", href: "#" },
-
-          ].map(({ icon, label, href }) => (
-
-            <Link key={label} href={href} className={menuLinkClass}>
-
-              <div className="flex items-center gap-4">
-
-                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-surface-container-high text-primary">
-
-                  <Ms name={icon} />
-
+              <div className="ml-4 flex-1">
+                <div className="font-button-text text-button-text text-on-surface">
+                  Help Center / Support
                 </div>
-
-                <span className="font-body-md text-body-md font-semibold text-on-surface">
-
-                  {label}
-
-                </span>
-
-              </div>
-
-              <Ms name="chevron_right" className="text-outline" />
-
-            </Link>
-
-          ))}
-
-          <Link href="#" className={menuLinkClass}>
-
-            <div className="flex items-center gap-4">
-
-              <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-surface-container-high text-primary">
-
-                <Ms name="language" />
-
-              </div>
-
-              <span className="font-body-md text-body-md font-semibold text-on-surface">
-
-                Language
-
-              </span>
-
-            </div>
-
-            <div className="flex items-center gap-1 text-sm font-medium text-on-surface-variant">
-
-              English (US)
-
-              <Ms name="chevron_right" className="text-outline" />
-
-            </div>
-
-          </Link>
-
-
-
-          <div className="mb-2 mt-6 border-b border-border-subtle px-2 py-4 text-xs font-bold uppercase tracking-widest text-on-surface-variant">
-
-            Support &amp; Legal
-
-          </div>
-
-          {[
-
-            { icon: "help_center", label: "Help Center", href: "#" },
-
-            { icon: "policy", label: "Privacy Policy", href: "#" },
-
-          ].map(({ icon, label, href }) => (
-
-            <Link key={label} href={href} className={menuLinkClass}>
-
-              <div className="flex items-center gap-4">
-
-                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-surface-container-high text-primary">
-
-                  <Ms name={icon} />
-
+                <div className="font-body-sm text-body-sm text-on-surface-variant">
+                  Pusat Bantuan &amp; CS
                 </div>
-
-                <span className="font-body-md text-body-md font-semibold text-on-surface">
-
-                  {label}
-
-                </span>
-
               </div>
-
               <Ms name="chevron_right" className="text-outline" />
-
             </Link>
 
-          ))}
+            <Link
+              href="/profile/privacy"
+              className="flex items-center rounded-xl bg-surface-container-lowest p-4 text-left transition-colors hover:bg-surface-container-low"
+            >
+              <div className="flex h-10 w-10 items-center justify-center rounded-full text-on-surface-variant">
+                <Ms name="policy" />
+              </div>
+              <div className="ml-4 flex-1">
+                <div className="font-button-text text-button-text text-on-surface">Privacy Policy</div>
+                <div className="font-body-sm text-body-sm text-on-surface-variant">
+                  Kebijakan Privasi
+                </div>
+              </div>
+              <Ms name="chevron_right" className="text-outline" />
+            </Link>
 
+            <ProfileLogoutButton />
+          </section>
 
-
-          <button
-
-            type="button"
-
-            className="mt-4 flex w-full items-center gap-4 rounded-xl border border-error/10 bg-error-container/20 p-4 text-error transition-all hover:bg-error-container/30 active:scale-[0.98]"
-
-          >
-
-            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-white/50">
-
-              <Ms name="logout" />
-
-            </div>
-
-            <span className="font-body-md text-body-md font-bold">Logout</span>
-
-          </button>
-
-        </section>
-
-
-
-        <div className="mb-8 mt-4 text-center text-xs text-outline">
-
-          IndustrialX v2.4.1 (Enterprise Edition)
-
+          <footer className="mt-12 px-margin-mobile text-center">
+            <p className="font-label-technical text-label-technical uppercase tracking-widest text-outline">
+              IndustrialX v2.4.0
+            </p>
+          </footer>
         </div>
-
       </main>
-
     </>
-
   );
-
 }
-

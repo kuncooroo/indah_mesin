@@ -44,22 +44,24 @@ export function IndustrialTopBar({
   }
 
   return (
-    <header className="sticky top-0 z-50 flex h-16 w-full items-center justify-between border-b border-border-subtle bg-surface px-margin-mobile md:px-margin-desktop">
+    <header className="sticky top-0 z-50 flex h-16 w-full items-center justify-between border-b border-border-subtle bg-surface px-margin-mobile">
       <div className="flex items-center gap-4">
         <button
           type="button"
-          className="p-2 text-primary transition-colors hover:bg-surface-container"
+          className="rounded-full p-2 text-primary transition-colors hover:bg-surface-container"
+          aria-label="Menu"
         >
           <Ms name="menu" />
         </button>
-        <h1 className="font-headline-md text-headline-md font-bold text-primary">
+        <Link href="/beranda-artikel" className="font-headline-md text-headline-md font-bold text-primary">
           IndustrialX
-        </h1>
+        </Link>
       </div>
       <div className="flex items-center gap-2">
         <button
           type="button"
-          className="p-2 text-primary transition-colors hover:bg-surface-container"
+          className="rounded-full p-2 text-primary transition-colors hover:bg-surface-container"
+          aria-label="Search"
         >
           <Ms name="search" />
         </button>

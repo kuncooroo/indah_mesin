@@ -1,6 +1,6 @@
 import type { Product, ProductStatus } from "@/lib/products";
-import { products as staticProducts, getProductBySku } from "@/lib/products";
-import { stitchSavedSkus } from "@/lib/stitch-screens";
+import { products as catalogFallback, getProductBySku } from "@/lib/products";
+import { MARKETPLACE_PRODUCTS, parseCatalogPriceIdr, shopCatalogProductWhere } from "@/lib/marketplace-catalog";
 import { prisma } from "@/lib/prisma";
 import type { Prisma, StockStatus } from "@prisma/client";
 
@@ -10,6 +10,7 @@ type ProductRow = Prisma.ProductGetPayload<{
     media: true;
     features: true;
     specifications: true;
+    documents: true;
   };
 }>;
 
@@ -36,10 +37,10 @@ function stockToProductStatus(status: StockStatus): ProductStatus {
   }
 }
 
-function stockLabel(status: StockStatus): string {
+function stockLabel(status: StockStatus, indentDays: number | null): string {
   switch (status) {
     case "INDENT":
-      return "Indent";
+      return indentDays ? `Inden ±${indentDays} hari` : "Inden";
     case "OUT_OF_STOCK":
       return "Out of Stock";
     default:
@@ -47,8 +48,8 @@ function stockLabel(status: StockStatus): string {
   }
 }
 
-function enrichFromStatic(product: Product): Product {
-  const ref = getProductBySku(product.sku);
+function enrichFromCatalogSeed(product: Product): Product {
+  const ref = getProductBySku(product.sku) ?? MARKETPLACE_PRODUCTS.find((p) => p.sku === product.sku);
   if (!ref) return product;
   return {
     ...product,
@@ -59,8 +60,7 @@ function enrichFromStatic(product: Product): Product {
     priceLabel: product.priceLabel || ref.priceLabel,
     priceNote: product.priceNote ?? ref.priceNote,
     statusLabel: product.statusLabel ?? ref.statusLabel,
-    savedPriceNote: ref.savedPriceNote,
-    savedSecondaryAction: ref.savedSecondaryAction,
+    subtitle: product.subtitle || ref.subtitle,
   };
 }
 
@@ -72,8 +72,19 @@ export function mapDbProduct(row: ProductRow): Product {
     .sort((a, b) => a.sortOrder - b.sortOrder)
     .map((m) => m.url);
 
+  const downloads = row.documents.map((d) => ({
+    title: d.title,
+    subtitle: d.subtitle ?? undefined,
+    fileUrl: d.fileUrl,
+    icon: d.title.toLowerCase().includes("sop") ? "description" : "picture_as_pdf",
+  }));
+
+  const priceAmount = Number(row.price);
+
   const mapped: Product = {
-    id: row.id,
+    id: row.slug,
+    slug: row.slug,
+    dbProductId: row.id,
     sku: row.sku,
     name: row.name,
     subtitle: row.priceNote ?? row.name,
@@ -82,15 +93,21 @@ export function mapDbProduct(row: ProductRow): Product {
     image: primary?.url ?? "",
     gallery: gallery.length ? gallery : undefined,
     priceLabel: formatPrice(row.currency, row.price),
+    priceAmount,
     priceNote: row.priceNote ?? undefined,
     status: stockToProductStatus(row.stockStatus),
-    statusLabel: stockLabel(row.stockStatus),
+    statusLabel: stockLabel(row.stockStatus, row.indentDays),
+    indentDays: row.indentDays ?? undefined,
+    brochureUrl: row.brochureUrl ?? undefined,
+    sopUrl: row.sopUrl ?? undefined,
     features: row.features.sort((a, b) => a.sortOrder - b.sortOrder).map((f) => f.text),
     specs: row.specifications
       .sort((a, b) => a.sortOrder - b.sortOrder)
       .map((s) => ({ label: s.attribute, value: s.value })),
+    downloads: downloads.length ? downloads : undefined,
+    createdAt: row.createdAt.toISOString(),
   };
-  return enrichFromStatic(mapped);
+  return enrichFromCatalogSeed(mapped);
 }
 
 const productInclude = {
@@ -98,28 +115,34 @@ const productInclude = {
   media: true,
   features: true,
   specifications: true,
+  documents: true,
 } as const;
 
-export async function listPublishedProducts(): Promise<Product[]> {
+async function fetchPublishedFromDb(): Promise<Product[]> {
   try {
     const rows = await prisma.product.findMany({
-      where: { isPublished: true },
+      where: shopCatalogProductWhere,
       orderBy: { name: "asc" },
       include: productInclude,
     });
-    if (rows.length > 0) {
-      return rows.map(mapDbProduct);
-    }
+    return rows.map(mapDbProduct);
   } catch {
-    /* DB belum siap — fallback static */
+    return [];
   }
-  return staticProducts;
 }
 
-export async function listAllProducts(): Promise<Product[]> {
+export async function listPublishedProducts(): Promise<Product[]> {
+  const fromDb = await fetchPublishedFromDb();
+  if (fromDb.length > 0) return fromDb;
+  return catalogFallback.map(enrichFromCatalogSeed);
+}
+
+export async function listFeaturedProducts(limit = 3): Promise<Product[]> {
   try {
     const rows = await prisma.product.findMany({
-      orderBy: { name: "asc" },
+      where: shopCatalogProductWhere,
+      orderBy: { createdAt: "desc" },
+      take: limit,
       include: productInclude,
     });
     if (rows.length > 0) {
@@ -128,15 +151,17 @@ export async function listAllProducts(): Promise<Product[]> {
   } catch {
     /* fallback */
   }
-  return staticProducts;
+  return catalogFallback.slice(0, limit).map(enrichFromCatalogSeed);
 }
 
 export async function findProductById(id: string): Promise<Product | undefined> {
   try {
     const row = await prisma.product.findFirst({
       where: {
-        OR: [{ id }, { sku: id }, { slug: id }],
-        isPublished: true,
+        AND: [
+          shopCatalogProductWhere,
+          { OR: [{ id }, { sku: id }, { slug: id }] },
+        ],
       },
       include: productInclude,
     });
@@ -144,36 +169,92 @@ export async function findProductById(id: string): Promise<Product | undefined> 
   } catch {
     /* fallback */
   }
-  const staticMatch = staticProducts.find((p) => p.id === id || p.sku === id);
-  return staticMatch ? enrichFromStatic(staticMatch) : undefined;
+  const staticMatch = catalogFallback.find(
+    (p) => p.id === id || p.sku === id || p.slug === id
+  );
+  return staticMatch ? enrichFromCatalogSeed(staticMatch) : undefined;
 }
 
 export async function findProductBySku(sku: string): Promise<Product | undefined> {
   return findProductById(sku);
 }
 
-export async function getSavedProducts(): Promise<Product[]> {
+const DEMO_SAVED_EMAIL = "user@indahmesin.com";
+
+export async function getDemoShopUserId(): Promise<string | null> {
+  try {
+    const user = await prisma.user.findUnique({
+      where: { email: DEMO_SAVED_EMAIL },
+      select: { id: true },
+    });
+    return user?.id ?? null;
+  } catch {
+    return null;
+  }
+}
+
+export async function listSavedSkusForShop(): Promise<string[]> {
+  const userId = await getDemoShopUserId();
+  if (!userId) return [];
   try {
     const rows = await prisma.savedItem.findMany({
+      where: { userId },
+      include: { product: { select: { sku: true, isPublished: true } } },
+    });
+    return rows.filter((r) => r.product.isPublished).map((r) => r.product.sku);
+  } catch {
+    return [];
+  }
+}
+
+export async function getSavedProducts(): Promise<Product[]> {
+  const userId = await getDemoShopUserId();
+  if (!userId) return listPublishedProducts().then((all) => all.slice(0, 0));
+
+  try {
+    const rows = await prisma.savedItem.findMany({
+      where: { userId },
       include: {
         product: { include: productInclude },
       },
       orderBy: { createdAt: "desc" },
-      take: 50,
     });
     if (rows.length > 0) {
-      const mapped = rows.map((r) => mapDbProduct(r.product));
-      const order = stitchSavedSkus as readonly string[];
-      return order
-        .map((sku) => mapped.find((p) => p.sku === sku))
-        .filter((p): p is Product => Boolean(p));
+      return rows
+        .filter((r) => r.product.isPublished)
+        .map((r) => mapDbProduct(r.product));
     }
   } catch {
     /* fallback */
   }
-  const all = await listPublishedProducts();
-  const filtered = all.filter((p) => (stitchSavedSkus as readonly string[]).includes(p.sku));
-  return filtered.map(enrichFromStatic);
+  return [];
 }
 
-export { stitchSavedSkus };
+export async function toggleSavedProductBySku(sku: string): Promise<{ saved: boolean; skus: string[] }> {
+  const userId = await getDemoShopUserId();
+  if (!userId) {
+    throw new Error("Demo user tidak ditemukan. Jalankan npm run db:seed");
+  }
+
+  const product = await prisma.product.findFirst({
+    where: { AND: [{ sku }, shopCatalogProductWhere] },
+  });
+  if (!product) {
+    throw new Error("Produk tidak ditemukan");
+  }
+
+  const existing = await prisma.savedItem.findUnique({
+    where: { userId_productId: { userId, productId: product.id } },
+  });
+
+  if (existing) {
+    await prisma.savedItem.delete({ where: { id: existing.id } });
+  } else {
+    await prisma.savedItem.create({ data: { userId, productId: product.id } });
+  }
+
+  const skus = await listSavedSkusForShop();
+  return { saved: !existing, skus };
+}
+
+export { DEMO_SAVED_EMAIL };

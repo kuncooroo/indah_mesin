@@ -1,10 +1,16 @@
 import "dotenv/config";
 import bcrypt from "bcrypt";
 import { PrismaMariaDb } from "@prisma/adapter-mariadb";
-import { PrismaClient, Role, StockStatus, RfqStatus, VerificationStatus } from "@prisma/client";
-import { products, type ProductStatus } from "../lib/products";
-import { stitchArticles, berandaMainCategories, stitchSavedSkus } from "../lib/stitch-screens";
-import { mainCategories, filterCategories, quickFilters } from "../lib/categories";
+import { PrismaClient, Role, StockStatus, RfqStatus, VerificationStatus, CompanyType, OrderStatus, ArchiveDocumentType } from "@prisma/client";
+import {
+  MARKETPLACE_CATEGORIES,
+  MARKETPLACE_PRODUCTS,
+  MARKETPLACE_SKUS,
+  MARKETPLACE_QUICK_FILTERS,
+  catalogProductToSeedStatus,
+  parseCatalogPriceIdr,
+} from "../lib/marketplace-catalog";
+import { stitchArticles } from "../lib/stitch-screens";
 import { indahMesinContact } from "../lib/contact";
 
 const url = process.env.DATABASE_URL;
@@ -17,28 +23,12 @@ const prisma = new PrismaClient({ adapter });
 
 const DEFAULT_PASSWORD = "Indah@2026";
 
-function toStockStatus(status: ProductStatus): StockStatus {
-  switch (status) {
-    case "indent":
-      return StockStatus.INDENT;
-    case "contact":
-      return StockStatus.OUT_OF_STOCK;
-    default:
-      return StockStatus.READY_STOCK;
-  }
-}
-
 function slugify(title: string) {
   return title
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/^-|-$/g, "")
     .slice(0, 80);
-}
-
-function parsePriceLabel(label: string): number {
-  const digits = label.replace(/[^\d]/g, "");
-  return parseInt(digits, 10) || 0;
 }
 
 async function main() {
@@ -51,7 +41,7 @@ async function main() {
       name: "Budi Santoso",
       email: "user@indahmesin.com",
       password: passwordHash,
-      role: Role.BUYER,
+      role: Role.PURCHASING,
       verificationStatus: VerificationStatus.VERIFIED,
       companyName: "PT. Pangan Makmur Abadi",
       customBuyerId: "25030024",
@@ -62,13 +52,47 @@ async function main() {
       username: "user",
       name: "Budi Santoso",
       password: passwordHash,
-      role: Role.BUYER,
+      role: Role.PURCHASING,
       verificationStatus: VerificationStatus.VERIFIED,
       companyName: "PT. Pangan Makmur Abadi",
       customBuyerId: "25030024",
       phone: indahMesinContact.phoneDisplay,
       companyAddress: "Jl. Industri Raya No. 45, Cikarang, Bekasi, Jawa Barat",
     },
+  });
+
+  const demoCompany =
+    (await prisma.company.findFirst({
+      where: { companyName: "PT. Pangan Makmur Abadi" },
+    })) ??
+    (await prisma.company.create({
+      data: {
+        companyName: "PT. Pangan Makmur Abadi",
+        type: CompanyType.BUYER,
+        npwpNumber: "01.234.567.8-901.000",
+        nibNumber: "0123456789012345",
+        isVerified: true,
+      },
+    }));
+
+  const demoAddress =
+    (await prisma.companyAddress.findFirst({
+      where: { companyId: demoCompany.id, label: "Gudang Cikarang" },
+    })) ??
+    (await prisma.companyAddress.create({
+      data: {
+        companyId: demoCompany.id,
+        label: "Gudang Cikarang",
+        addressDetail: "Jl. Industri Raya No. 45, Cikarang",
+        city: "Bekasi",
+        postalCode: "17530",
+        isPrimary: true,
+      },
+    }));
+
+  await prisma.user.update({
+    where: { id: demoUser.id },
+    data: { companyId: demoCompany.id },
   });
 
   await prisma.user.upsert({
@@ -105,31 +129,39 @@ async function main() {
     },
   });
 
-  const categoryDefs = new Map<string, { name: string; icon: string }>();
-  for (const c of [...mainCategories, ...filterCategories, ...berandaMainCategories]) {
-    if (!categoryDefs.has(c.id)) {
-      categoryDefs.set(c.id, { name: c.name, icon: c.icon });
-    }
-  }
+  const categorySlugs = MARKETPLACE_CATEGORIES.map((c) => c.id);
 
-  for (const [slug, meta] of categoryDefs) {
+  for (const c of MARKETPLACE_CATEGORIES) {
     await prisma.category.upsert({
-      where: { slug },
-      create: { slug, name: meta.name, icon: meta.icon },
-      update: { name: meta.name, icon: meta.icon },
+      where: { slug: c.id },
+      create: { slug: c.id, name: c.name, icon: c.icon },
+      update: { name: c.name, icon: c.icon },
     });
   }
 
+  await prisma.product.deleteMany({
+    where: { sku: { notIn: [...MARKETPLACE_SKUS] } },
+  });
+
+  await prisma.category.deleteMany({
+    where: { slug: { notIn: categorySlugs } },
+  });
+
   const categoryBySlug = new Map(
-    (await prisma.category.findMany()).map((c) => [c.slug, c.id])
+    (await prisma.category.findMany({ where: { slug: { in: categorySlugs } } })).map((c) => [
+      c.slug,
+      c.id,
+    ])
   );
 
-  for (const p of products) {
+  for (const p of MARKETPLACE_PRODUCTS) {
     const categoryId = categoryBySlug.get(p.category);
     if (!categoryId) continue;
 
-    const slug = slugify(p.name);
-    const price = parsePriceLabel(p.priceLabel);
+    const slug = p.id;
+    const price = parseCatalogPriceIdr(p.priceLabel);
+    const stockStatus = catalogProductToSeedStatus(p.status);
+    const indentDays = p.status === "indent" ? (p.sku === "IMS-CAN-LINE" ? 45 : p.sku === "IMS-PROD-1000" ? 60 : 21) : null;
 
     const product = await prisma.product.upsert({
       where: { sku: p.sku },
@@ -138,7 +170,8 @@ async function main() {
         name: p.name,
         slug,
         categoryId,
-        stockStatus: toStockStatus(p.status),
+        stockStatus,
+        indentDays,
         currency: "IDR",
         price,
         priceNote: p.priceNote ?? p.subtitle,
@@ -148,7 +181,8 @@ async function main() {
         name: p.name,
         slug,
         categoryId,
-        stockStatus: toStockStatus(p.status),
+        stockStatus,
+        indentDays,
         price,
         priceNote: p.priceNote ?? p.subtitle,
         isPublished: true,
@@ -165,14 +199,6 @@ async function main() {
           sortOrder: 0,
         },
       });
-      if (p.gallery?.length) {
-        let order = 1;
-        for (const url of p.gallery) {
-          await prisma.productMedia.create({
-            data: { productId: product.id, url, isPrimary: false, sortOrder: order++ },
-          });
-        }
-      }
     }
 
     await prisma.productFeature.deleteMany({ where: { productId: product.id } });
@@ -245,7 +271,7 @@ async function main() {
   }
 
   let order = 0;
-  for (const label of quickFilters) {
+  for (const { label } of MARKETPLACE_QUICK_FILTERS) {
     await prisma.quickFilter.upsert({
       where: { label },
       create: { label, sortOrder: order++, active: true },
@@ -292,7 +318,8 @@ async function main() {
     },
   });
 
-  for (const sku of stitchSavedSkus) {
+  const defaultSavedSkus = ["FDP-RTR-500", "IMS-CAN-80", "IMS-SEAL-450"] as const;
+  for (const sku of defaultSavedSkus) {
     const product = await prisma.product.findUnique({ where: { sku } });
     if (!product) continue;
     await prisma.savedItem.upsert({
@@ -330,6 +357,40 @@ async function main() {
               price,
             },
           },
+        },
+      });
+    }
+
+    const orderNumber = "PO-20260726-001";
+    const existingOrder = await prisma.order.findUnique({ where: { orderNumber } });
+    if (!existingOrder) {
+      const price = Number(poProduct.price);
+      const order = await prisma.order.create({
+        data: {
+          orderNumber,
+          userId: demoUser.id,
+          companyId: demoCompany.id,
+          status: OrderStatus.DRAFT,
+          totalEstimatedPrice: price,
+          shippingAddressId: demoAddress.id,
+          notes: "Permintaan quotation retort — shipping Jakarta",
+          items: {
+            create: {
+              productId: poProduct.id,
+              quantity: 1,
+              priceAtTime: price,
+            },
+          },
+        },
+      });
+
+      await prisma.archiveDocument.create({
+        data: {
+          userId: demoUser.id,
+          orderId: order.id,
+          documentName: `Draf PO Batch #${orderNumber}.pdf`,
+          documentType: ArchiveDocumentType.PO_DRAFT,
+          fileUrl: "/stitch/po-a4.html",
         },
       });
     }

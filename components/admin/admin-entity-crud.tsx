@@ -257,26 +257,50 @@ export function UserCreateDialog({
 
 export function CustomerEditDialog({
   row,
+  companies,
   updateAction,
 }: {
   row: {
     id: string;
     name: string | null;
     email: string | null;
+    phone: string | null;
+    role: string;
+    companyId: string | null;
     companyName: string | null;
     customBuyerId: string | null;
     verificationStatus: string;
   };
+  companies: { id: string; label: string }[];
   updateAction: (formData: FormData) => Promise<void>;
 }) {
   const verified = row.verificationStatus === "VERIFIED";
   return (
-    <AdminCrudDialog title="Edit Pelanggan" triggerLabel="Edit" variant="ghost" triggerMode="icon-edit">
+    <AdminCrudDialog title="Edit PIC" triggerLabel="Edit" variant="ghost" triggerMode="icon-edit">
       <form action={updateAction} className={adminFormGridClass}>
         <input type="hidden" name="id" value={row.id} />
-        <AdminFormField label="Nama" name="name" defaultValue={row.name ?? ""} />
+        <AdminFormField label="Nama PIC" name="name" defaultValue={row.name ?? ""} />
         <AdminFormField label="Email" name="email" defaultValue={row.email ?? ""} />
-        <AdminFormField label="Perusahaan" name="companyName" defaultValue={row.companyName ?? ""} />
+        <AdminFormField label="No. WhatsApp" name="phone" defaultValue={row.phone ?? ""} />
+        <AdminFormField
+          label="Perusahaan (FK)"
+          name="companyId"
+          as="select"
+          defaultValue={row.companyId ?? ""}
+          options={[{ value: "", label: "— Pilih —" }, ...companies.map((c) => ({ value: c.id, label: c.label }))]}
+        />
+        <AdminFormField
+          label="Role akun"
+          name="role"
+          as="select"
+          defaultValue={row.role}
+          options={[
+            { value: "BUYER", label: "Buyer" },
+            { value: "PURCHASING", label: "Purchasing" },
+            { value: "APPROVER", label: "Approver" },
+          ]}
+        />
+        <AdminFormField label="Perusahaan (legacy teks)" name="companyName" defaultValue={row.companyName ?? ""} />
         <AdminFormField label="Buyer ID" name="customBuyerId" defaultValue={row.customBuyerId ?? ""} />
         <AdminCheckboxField label="Verified Buyer" name="verifiedBuyer" defaultChecked={verified} />
         <AdminSubmitButton label="Update" />

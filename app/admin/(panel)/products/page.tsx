@@ -1,7 +1,11 @@
 import Image from "next/image";
-import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { parseAdminListParams, rowNumber } from "@/lib/admin/list-params";
+import {
+  adminProductListWhere,
+  sortProductsByCatalogSku,
+  shopCatalogCategoryWhere,
+} from "@/lib/marketplace-catalog";
 import { createProduct, updateProduct, deleteProduct } from "@/lib/admin-crud";
 import { AdminPageHeader } from "@/components/admin/admin-page-header";
 import {
@@ -34,30 +38,27 @@ function formatPrice(currency: string, price: { toString(): string }) {
 
 export default async function AdminProductsPage({ searchParams }: PageProps) {
   const params = parseAdminListParams(await searchParams);
-  const where: Prisma.ProductWhereInput = params.q
-    ? {
-        OR: [
-          { name: { contains: params.q } },
-          { sku: { contains: params.q } },
-          { category: { name: { contains: params.q } } },
-        ],
-      }
-    : {};
+  const where = adminProductListWhere(params.q);
 
-  const [total, rows, categories] = await Promise.all([
+  const [total, rawRows, categories] = await Promise.all([
     prisma.product.count({ where }),
     prisma.product.findMany({
       where,
-      orderBy: { name: "asc" },
-      skip: params.skip,
-      take: params.pageSize,
       include: {
         category: true,
         media: { where: { isPrimary: true }, take: 1 },
       },
     }),
-    prisma.category.findMany({ orderBy: { name: "asc" }, select: { id: true, name: true, slug: true } }),
+    prisma.category.findMany({
+      where: shopCatalogCategoryWhere,
+      orderBy: { name: "asc" },
+      select: { id: true, name: true, slug: true },
+    }),
   ]);
+  const rows = sortProductsByCatalogSku(rawRows).slice(
+    params.skip,
+    params.skip + params.pageSize
+  );
 
   const categoryOptions = categories.map((c) => ({
     id: c.id,
@@ -66,7 +67,10 @@ export default async function AdminProductsPage({ searchParams }: PageProps) {
 
   return (
     <>
-      <AdminPageHeader title="Produk" description="Kelola katalog — search, CRUD, pagination." />
+      <AdminPageHeader
+        title="Produk"
+        description="Katalog resmi toko (6 produk) — sama dengan yang tampil di halaman user."
+      />
       <AdminListShell
         basePath="/admin/products"
         q={params.q}
@@ -124,7 +128,7 @@ export default async function AdminProductsPage({ searchParams }: PageProps) {
                         ) : null}
                       </td>
                       <AdminActionCell>
-                        <AdminPreviewLink href={`/products/${p.id}`} />
+                        <AdminPreviewLink href={`/products/${p.slug}`} />
                         <ProductEditDialog
                           product={{
                             id: p.id,
@@ -134,6 +138,9 @@ export default async function AdminProductsPage({ searchParams }: PageProps) {
                             price: p.price.toString(),
                             priceNote: p.priceNote,
                             stockStatus: p.stockStatus,
+                            indentDays: p.indentDays,
+                            brochureUrl: p.brochureUrl,
+                            sopUrl: p.sopUrl,
                             isPublished: p.isPublished,
                           }}
                           primaryImageUrl={image}

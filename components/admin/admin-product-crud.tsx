@@ -44,6 +44,9 @@ export function ProductCreateDialog({
             { value: "OUT_OF_STOCK", label: "Out of Stock" },
           ]}
         />
+        <AdminFormField label="Indent (hari)" name="indentDays" type="number" />
+        <AdminFileField label="URL Brosur PDF" name="brochureUrl" />
+        <AdminFileField label="URL SOP PDF" name="sopUrl" />
         <AdminCheckboxField label="Published" name="isPublished" defaultChecked />
         <AdminSubmitButton label="Simpan" />
       </form>
@@ -65,6 +68,9 @@ export function ProductEditDialog({
     price: string | number;
     priceNote: string | null;
     stockStatus: string;
+    indentDays: number | null;
+    brochureUrl: string | null;
+    sopUrl: string | null;
     isPublished: boolean;
   };
   updateAction: (formData: FormData) => Promise<void>;
@@ -97,6 +103,14 @@ export function ProductEditDialog({
             { value: "OUT_OF_STOCK", label: "Out of Stock" },
           ]}
         />
+        <AdminFormField
+          label="Indent (hari)"
+          name="indentDays"
+          type="number"
+          defaultValue={product.indentDays ?? ""}
+        />
+        <AdminFileField label="URL Brosur PDF" name="brochureUrl" defaultUrl={product.brochureUrl ?? undefined} />
+        <AdminFileField label="URL SOP PDF" name="sopUrl" defaultUrl={product.sopUrl ?? undefined} />
         <AdminCheckboxField label="Published" name="isPublished" defaultChecked={product.isPublished} />
         <AdminSubmitButton label="Update" />
       </form>

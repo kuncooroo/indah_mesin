@@ -11,7 +11,10 @@ export function WhatsAppFab() {
   if (
     pathname.startsWith("/products/") ||
     pathname === "/contact" ||
-    pathname === "/profile"
+    pathname === "/profile" ||
+    pathname.startsWith("/profile/") ||
+    pathname === "/po-preview" ||
+    pathname.startsWith("/po-preview/")
   ) {
     return null;
   }

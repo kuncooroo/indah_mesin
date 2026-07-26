@@ -54,7 +54,7 @@ export default async function AdminUsersPage({ searchParams }: PageProps) {
 
   return (
     <>
-      <AdminPageHeader title="Admin" description="Kelola akun admin & superadmin." />
+      <AdminPageHeader title="Pengaturan Admin" description="Kelola akun admin & superadmin." />
       <AdminListShell
         basePath="/admin/users"
         q={params.q}

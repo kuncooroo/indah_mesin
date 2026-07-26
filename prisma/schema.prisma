@@ -12,8 +12,30 @@ datasource db {
 
 enum Role {
   BUYER
+  PURCHASING
+  APPROVER
   ADMIN
   SUPERADMIN
+}
+
+enum CompanyType {
+  BUYER
+  VENDOR
+}
+
+enum OrderStatus {
+  DRAFT
+  SUBMITTED_VIA_WA
+  NEGOTIATING
+  APPROVED
+  CANCELLED
+}
+
+enum ArchiveDocumentType {
+  PO_DRAFT
+  OFFICIAL_QUOTATION
+  INVOICE
+  BROCHURE
 }
 
 enum VerificationStatus {
@@ -42,7 +64,45 @@ enum RfqStatus {
 }
 
 // ==========================================
-// 2. USER MANAGEMENT
+// 2. COMPANIES & ADDRESSES
+// ==========================================
+
+model Company {
+  id          String      @id @default(uuid())
+  companyName String
+  type        CompanyType @default(BUYER)
+  npwpNumber  String?
+  nibNumber   String?
+  isVerified  Boolean     @default(false)
+
+  users     User[]
+  addresses CompanyAddress[]
+  orders    Order[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([type])
+  @@index([isVerified])
+}
+
+model CompanyAddress {
+  id            String  @id @default(uuid())
+  companyId     String
+  company       Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  label         String
+  addressDetail String  @db.Text
+  city          String
+  postalCode    String?
+  isPrimary     Boolean @default(false)
+
+  ordersAsShipping Order[]
+
+  @@index([companyId])
+}
+
+// ==========================================
+// 3. USER MANAGEMENT (PIC)
 // ==========================================
 
 model User {
@@ -55,9 +115,13 @@ model User {
   phone              String?
   avatar             String?            @db.Text
 
+  companyId          String?
+  company            Company?           @relation(fields: [companyId], references: [id], onDelete: SetNull)
+
   role               Role               @default(BUYER)
   verificationStatus VerificationStatus @default(UNVERIFIED)
 
+  /// Legacy — prefer `company` relation
   companyName        String?
   companyAddress     String?            @db.Text
   position           String?
@@ -65,10 +129,15 @@ model User {
   savedItems         SavedItem[]
   cartItems          CartItem[]
   rfqRequests        RfqRequest[]
+  orders             Order[]
+  archiveDocuments   ArchiveDocument[]
   activityLogs       ActivityLog[]
 
   createdAt          DateTime           @default(now())
   updatedAt          DateTime           @updatedAt
+
+  @@index([companyId])
+  @@index([role])
 }
 
 // ==========================================
@@ -100,11 +169,14 @@ model Product {
   name        String
   slug        String      @unique
   stockStatus StockStatus @default(READY_STOCK)
+  indentDays  Int?
   isPublished Boolean     @default(true)
 
-  currency  String  @default("IDR")
-  price     Decimal @db.Decimal(15, 2)
-  priceNote String? @db.Text
+  currency     String  @default("IDR")
+  price        Decimal @db.Decimal(15, 2) /// price_estimate
+  priceNote    String? @db.Text
+  brochureUrl  String? @db.Text
+  sopUrl       String? @db.Text
 
   categoryId String
   category   Category @relation(fields: [categoryId], references: [id])
@@ -118,6 +190,7 @@ model Product {
   savedByUsers   SavedItem[]
   cartItems      CartItem[]
   rfqItems       RfqItem[]
+  orderItems     OrderItem[]
   reviews        ProductReview[]
 
   createdAt DateTime @default(now())
@@ -226,6 +299,63 @@ model RfqItem {
   variant     String?
   price       Decimal @db.Decimal(15, 2)
   note        String? @db.Text
+}
+
+// ==========================================
+// 5b. ORDERS (Draf PO & transaksi)
+// ==========================================
+
+model Order {
+  id                  String      @id @default(uuid())
+  orderNumber         String      @unique
+  userId              String?
+  user                User?       @relation(fields: [userId], references: [id], onDelete: SetNull)
+  companyId           String?
+  company             Company?    @relation(fields: [companyId], references: [id], onDelete: SetNull)
+  status              OrderStatus @default(DRAFT)
+  totalEstimatedPrice Decimal     @db.Decimal(15, 2)
+  shippingAddressId   String?
+  shippingAddress     CompanyAddress? @relation(fields: [shippingAddressId], references: [id], onDelete: SetNull)
+  notes               String?     @db.Text
+
+  items     OrderItem[]
+  documents ArchiveDocument[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId])
+  @@index([companyId])
+  @@index([status])
+}
+
+model OrderItem {
+  id          String  @id @default(uuid())
+  orderId     String
+  order       Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  productId   String
+  product     Product @relation(fields: [productId], references: [id])
+  quantity    Int     @default(1)
+  priceAtTime Decimal @db.Decimal(15, 2)
+
+  @@index([orderId])
+  @@index([productId])
+}
+
+model ArchiveDocument {
+  id           String              @id @default(uuid())
+  userId       String?
+  user         User?               @relation(fields: [userId], references: [id], onDelete: SetNull)
+  orderId      String?
+  order        Order?              @relation(fields: [orderId], references: [id], onDelete: SetNull)
+  documentName String
+  documentType ArchiveDocumentType
+  fileUrl      String              @db.Text
+  createdAt    DateTime            @default(now())
+
+  @@index([userId])
+  @@index([orderId])
+  @@index([documentType])
 }
 
 // ==========================================

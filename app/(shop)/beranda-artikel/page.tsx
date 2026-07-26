@@ -10,32 +10,24 @@ import { CatalogCard } from "@/components/shop/catalog-card";
 
 import { Ms } from "@/components/stitch/ms";
 
-import { berandaMainCategories } from "@/lib/stitch-screens";
-
-import { quickFilters } from "@/lib/categories";
-
-import { findProductBySku } from "@/lib/catalog";
+import { listFeaturedProducts } from "@/lib/catalog";
 
 import { listPublishedArticles } from "@/lib/content";
-
-
-
-const featuredSkus = ["CNC850", "PK-ALF5K", "PW-G500S"] as const;
+import { listBerandaCategories } from "@/lib/shop-categories";
+import { ShopSearchForm } from "@/components/shop/shop-search-form";
+import { MARKETPLACE_QUICK_FILTERS } from "@/lib/marketplace-catalog";
 
 
 
 export default async function BerandaArtikelPage() {
 
-  const [featured, articles] = await Promise.all([
+  const [featured, articles, categories] = await Promise.all([
 
-    Promise.all(featuredSkus.map((sku) => findProductBySku(sku))).then((list) =>
-
-      list.filter(Boolean)
-
-    ),
+    listFeaturedProducts(3),
 
     listPublishedArticles(),
 
+    listBerandaCategories(4),
   ]);
 
 
@@ -64,27 +56,7 @@ export default async function BerandaArtikelPage() {
 
             </h2>
 
-            <div className="relative max-w-3xl">
-
-              <Ms
-
-                name="search"
-
-                className="absolute left-4 top-1/2 -translate-y-1/2 text-outline"
-
-              />
-
-              <input
-
-                type="text"
-
-                placeholder="Cari CNC, Packaging, atau SKU..."
-
-                className="w-full rounded-xl border border-border-subtle bg-white py-4 pl-12 pr-4 font-body-md shadow-sm transition-all focus:border-primary focus:ring-2 focus:ring-primary"
-
-              />
-
-            </div>
+            <ShopSearchForm className="relative z-10 max-w-3xl" />
 
           </div>
 
@@ -120,13 +92,13 @@ export default async function BerandaArtikelPage() {
 
           <div className="grid grid-cols-2 gap-4">
 
-            {berandaMainCategories.map(({ id, name, icon }) => (
+            {categories.map(({ id, name, icon }) => (
 
               <Link
 
                 key={id}
 
-                href="/categories?cat=food"
+                href={`/categories?cat=${encodeURIComponent(id)}`}
 
                 className="group flex cursor-pointer flex-col items-center justify-center rounded-xl border border-border-subtle bg-white p-6 text-center transition-all hover:shadow-md"
 
@@ -158,30 +130,18 @@ export default async function BerandaArtikelPage() {
 
           <div className="no-scrollbar flex gap-3 overflow-x-auto px-margin-mobile py-1 md:px-margin-desktop">
 
-            {quickFilters.map((filter, i) => (
-
-              <button
-
-                key={filter}
-
-                type="button"
-
+            {MARKETPLACE_QUICK_FILTERS.map(({ id, label }, i) => (
+              <Link
+                key={id}
+                href={`/categories?filter=${id}`}
                 className={
-
                   i === 0
-
                     ? "shrink-0 rounded-full border border-primary px-5 py-2 text-body-sm font-semibold text-primary transition-colors hover:bg-primary hover:text-white active:scale-95"
-
                     : "shrink-0 rounded-full border border-border-subtle px-5 py-2 text-body-sm font-semibold text-on-surface-variant transition-colors hover:border-primary hover:text-primary active:scale-95"
-
                 }
-
               >
-
-                {filter}
-
-              </button>
-
+                {label}
+              </Link>
             ))}
 
           </div>
@@ -200,11 +160,11 @@ export default async function BerandaArtikelPage() {
 
           <div className="grid grid-cols-1 gap-8 md:grid-cols-3">
 
-            {featured.map(
+            {featured.map((product) => (
 
-              (product) => product && <CatalogCard key={product.id} product={product} />
+              <CatalogCard key={product.id} product={product} />
 
-            )}
+            ))}
 
           </div>
 
@@ -343,4 +303,3 @@ export default async function BerandaArtikelPage() {
   );
 
 }
-

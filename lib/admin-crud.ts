@@ -5,7 +5,8 @@ import { revalidatePath } from "next/cache";
 import { getServerSession } from "next-auth";
 import { authOptions, isAdminRole } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import type { Role, RfqStatus, StockStatus } from "@prisma/client";
+import type { Role, RfqStatus, StockStatus, OrderStatus, CompanyType, ArchiveDocumentType } from "@prisma/client";
+import { buyerRoles } from "@/lib/buyer-roles";
 import { Prisma } from "@prisma/client";
 
 async function requireAdmin() {
@@ -49,6 +50,13 @@ function parsePrice(raw: string): Prisma.Decimal {
   return new Prisma.Decimal(Number.isFinite(n) ? n : 0);
 }
 
+function parseOptionalInt(raw: FormDataEntryValue | null): number | null {
+  const s = String(raw ?? "").trim();
+  if (!s) return null;
+  const n = parseInt(s, 10);
+  return Number.isFinite(n) ? n : null;
+}
+
 // ——— Product ———
 export async function createProduct(formData: FormData) {
   await requireAdmin();
@@ -70,6 +78,9 @@ export async function createProduct(formData: FormData) {
       currency: String(formData.get("currency") ?? "IDR"),
       price: parsePrice(String(formData.get("price") ?? "0")),
       priceNote: String(formData.get("priceNote") ?? "") || null,
+      indentDays: parseOptionalInt(formData.get("indentDays")),
+      brochureUrl: String(formData.get("brochureUrl") ?? "") || null,
+      sopUrl: String(formData.get("sopUrl") ?? "") || null,
       isPublished: formData.get("isPublished") === "on",
       ...(imageUrl
         ? {
@@ -103,6 +114,9 @@ export async function updateProduct(formData: FormData) {
       stockStatus: parseStockStatus(String(formData.get("stockStatus") ?? "READY_STOCK")),
       price: parsePrice(String(formData.get("price") ?? "0")),
       priceNote: String(formData.get("priceNote") ?? "") || null,
+      indentDays: parseOptionalInt(formData.get("indentDays")),
+      brochureUrl: String(formData.get("brochureUrl") ?? "") || null,
+      sopUrl: String(formData.get("sopUrl") ?? "") || null,
       isPublished: formData.get("isPublished") === "on",
     },
   });
@@ -243,7 +257,7 @@ export async function createUser(formData: FormData) {
     },
   });
   revalidatePath("/admin/users");
-  revalidatePath("/admin/customers");
+  revalidatePath("/admin/companies");
 }
 
 export async function updateCustomer(formData: FormData) {
@@ -256,20 +270,25 @@ export async function updateCustomer(formData: FormData) {
     data: {
       name: String(formData.get("name") ?? "") || undefined,
       email: String(formData.get("email") ?? "") || undefined,
+      phone: String(formData.get("phone") ?? "") || null,
+      companyId: String(formData.get("companyId") ?? "") || null,
+      role: (String(formData.get("role") ?? "BUYER") as Role) || undefined,
       companyName: String(formData.get("companyName") ?? "") || null,
       customBuyerId: String(formData.get("customBuyerId") ?? "") || null,
       verificationStatus: verified ? "VERIFIED" : "UNVERIFIED",
     },
   });
-  revalidatePath("/admin/customers");
+  revalidatePath("/admin/companies");
 }
 
 export async function deleteCustomer(id: string) {
   await requireAdmin();
-  const user = await prisma.user.findFirst({ where: { id, role: "BUYER" } });
+  const user = await prisma.user.findFirst({
+    where: { id, role: { in: ["BUYER", "PURCHASING", "APPROVER"] } },
+  });
   if (!user) throw new Error("Pelanggan tidak ditemukan");
   await prisma.user.delete({ where: { id } });
-  revalidatePath("/admin/customers");
+  revalidatePath("/admin/companies");
 }
 
 export async function deleteUser(id: string) {
@@ -277,7 +296,7 @@ export async function deleteUser(id: string) {
   if (session.user.id === id) throw new Error("Tidak dapat menghapus akun sendiri");
   await prisma.user.delete({ where: { id } });
   revalidatePath("/admin/users");
-  revalidatePath("/admin/customers");
+  revalidatePath("/admin/companies");
 }
 
 // ——— Saved items (favorites) ———
@@ -314,13 +333,13 @@ export async function updateRfqRequest(formData: FormData) {
       companyName: String(formData.get("companyName") ?? ""),
     },
   });
-  revalidatePath("/admin/rfq");
+  revalidatePath("/admin/orders");
 }
 
 export async function deleteRfqRequest(id: string) {
   await requireAdmin();
   await prisma.rfqRequest.delete({ where: { id } });
-  revalidatePath("/admin/rfq");
+  revalidatePath("/admin/orders");
 }
 
 export const updatePurchaseOrder = updateRfqRequest;
@@ -404,4 +423,134 @@ export async function deleteReview(id: string) {
   await requireAdmin();
   await prisma.productReview.delete({ where: { id } });
   revalidatePath("/admin/reviews");
+}
+
+export async function createCompany(formData: FormData) {
+  await requireAdmin();
+  const companyName = String(formData.get("companyName") ?? "").trim();
+  if (!companyName) throw new Error("Nama perusahaan wajib");
+
+  await prisma.company.create({
+    data: {
+      companyName,
+      type: (String(formData.get("type") ?? "BUYER") as CompanyType) || "BUYER",
+      npwpNumber: String(formData.get("npwpNumber") ?? "") || null,
+      nibNumber: String(formData.get("nibNumber") ?? "") || null,
+      isVerified: formData.get("isVerified") === "on",
+    },
+  });
+  revalidatePath("/admin/companies");
+  revalidatePath("/admin/companies");
+}
+
+export async function updateCompany(formData: FormData) {
+  await requireAdmin();
+  const id = String(formData.get("id") ?? "");
+  if (!id) throw new Error("ID tidak valid");
+
+  await prisma.company.update({
+    where: { id },
+    data: {
+      companyName: String(formData.get("companyName") ?? ""),
+      type: (String(formData.get("type") ?? "BUYER") as CompanyType) || "BUYER",
+      npwpNumber: String(formData.get("npwpNumber") ?? "") || null,
+      nibNumber: String(formData.get("nibNumber") ?? "") || null,
+      isVerified: formData.get("isVerified") === "on",
+    },
+  });
+  revalidatePath("/admin/companies");
+  revalidatePath("/admin/companies");
+}
+
+export async function deleteCompany(id: string) {
+  await requireAdmin();
+  await prisma.company.delete({ where: { id } });
+  revalidatePath("/admin/companies");
+}
+
+// ——— Company addresses ———
+export async function createCompanyAddress(formData: FormData) {
+  await requireAdmin();
+  const companyId = String(formData.get("companyId") ?? "");
+  const label = String(formData.get("label") ?? "").trim();
+  if (!companyId || !label) throw new Error("Perusahaan dan label wajib");
+
+  await prisma.companyAddress.create({
+    data: {
+      companyId,
+      label,
+      addressDetail: String(formData.get("addressDetail") ?? ""),
+      city: String(formData.get("city") ?? ""),
+      postalCode: String(formData.get("postalCode") ?? "") || null,
+      isPrimary: formData.get("isPrimary") === "on",
+    },
+  });
+  revalidatePath("/admin/companies");
+}
+
+export async function updateCompanyAddress(formData: FormData) {
+  await requireAdmin();
+  const id = String(formData.get("id") ?? "");
+  await prisma.companyAddress.update({
+    where: { id },
+    data: {
+      label: String(formData.get("label") ?? ""),
+      addressDetail: String(formData.get("addressDetail") ?? ""),
+      city: String(formData.get("city") ?? ""),
+      postalCode: String(formData.get("postalCode") ?? "") || null,
+      isPrimary: formData.get("isPrimary") === "on",
+    },
+  });
+  revalidatePath("/admin/companies");
+}
+
+export async function deleteCompanyAddress(id: string) {
+  await requireAdmin();
+  await prisma.companyAddress.delete({ where: { id } });
+  revalidatePath("/admin/companies");
+}
+
+// ——— Orders (PO) ———
+export async function updateOrder(formData: FormData) {
+  await requireAdmin();
+  const id = String(formData.get("id") ?? "");
+  await prisma.order.update({
+    where: { id },
+    data: {
+      status: String(formData.get("status") ?? "DRAFT") as OrderStatus,
+      notes: String(formData.get("notes") ?? "") || null,
+    },
+  });
+  revalidatePath("/admin/orders");
+}
+
+export async function deleteOrder(id: string) {
+  await requireAdmin();
+  await prisma.order.delete({ where: { id } });
+  revalidatePath("/admin/orders");
+}
+
+// ——— Archive documents ———
+export async function createArchiveDocument(formData: FormData) {
+  await requireAdmin();
+  const documentName = String(formData.get("documentName") ?? "").trim();
+  const fileUrl = String(formData.get("fileUrl") ?? "").trim();
+  if (!documentName || !fileUrl) throw new Error("Nama dan URL file wajib");
+
+  await prisma.archiveDocument.create({
+    data: {
+      documentName,
+      fileUrl,
+      documentType: String(formData.get("documentType") ?? "PO_DRAFT") as ArchiveDocumentType,
+      userId: String(formData.get("userId") ?? "") || null,
+      orderId: String(formData.get("orderId") ?? "") || null,
+    },
+  });
+  revalidatePath("/admin/documents");
+}
+
+export async function deleteArchiveDocument(id: string) {
+  await requireAdmin();
+  await prisma.archiveDocument.delete({ where: { id } });
+  revalidatePath("/admin/documents");
 }

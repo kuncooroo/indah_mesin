@@ -1,6 +1,6 @@
 import Image from "next/image";
 import Link from "next/link";
-import { Ms } from "@/components/stitch/ms";
+import { SaveProductButton } from "@/components/shop/saved-products-context";
 import type { Product } from "@/lib/products";
 
 function statusBadge(product: Product) {
@@ -35,12 +35,7 @@ export function CategoryProductCard({ product }: { product: Product }) {
         >
           {badge.label}
         </div>
-        <button
-          type="button"
-          className="absolute right-3 top-3 flex h-8 w-8 items-center justify-center rounded-full bg-surface/80 text-primary shadow-sm backdrop-blur-sm transition-colors hover:bg-surface"
-        >
-          <Ms name="bookmark" className="text-[20px]" />
-        </button>
+        <SaveProductButton sku={product.sku} className="absolute right-3 top-3" />
       </div>
       <div className="flex flex-grow flex-col p-4">
         <span className="mb-1 font-label-technical text-label-technical text-on-surface-variant">

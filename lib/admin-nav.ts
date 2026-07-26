@@ -4,12 +4,14 @@ import {
   Package,
   FolderTree,
   Newspaper,
-  MessageSquare,
   HelpCircle,
-  FileText,
-  Heart,
-  Users,
   Shield,
+  Building2,
+  ClipboardList,
+  Files,
+  Store,
+  Globe,
+  Settings,
 } from "lucide-react";
 
 export type AdminNavItem = {
@@ -17,19 +19,77 @@ export type AdminNavItem = {
   label: string;
   icon: LucideIcon;
   superOnly?: boolean;
+  /** Match nested routes (e.g. /admin/companies/[id]) */
+  matchPrefix?: boolean;
 };
 
+export type AdminNavGroup = {
+  id: string;
+  label: string;
+  icon: LucideIcon;
+  items: AdminNavItem[];
+};
+
+export const adminNavDashboard: AdminNavItem = {
+  href: "/admin/dashboard",
+  label: "Dashboard",
+  icon: LayoutDashboard,
+};
+
+export const adminNavGroups: AdminNavGroup[] = [
+  {
+    id: "catalog",
+    label: "Transaksi & Katalog",
+    icon: Store,
+    items: [
+      { href: "/admin/products", label: "Produk", icon: Package, matchPrefix: true },
+      { href: "/admin/categories", label: "Kategori", icon: FolderTree, matchPrefix: true },
+      { href: "/admin/orders", label: "Order / PO", icon: ClipboardList, matchPrefix: true },
+      { href: "/admin/documents", label: "Dokumen", icon: Files, matchPrefix: true },
+    ],
+  },
+  {
+    id: "entities",
+    label: "Manajemen Entitas",
+    icon: Building2,
+    items: [
+      {
+        href: "/admin/companies",
+        label: "Perusahaan",
+        icon: Building2,
+        matchPrefix: true,
+      },
+    ],
+  },
+  {
+    id: "content",
+    label: "Konten Web",
+    icon: Globe,
+    items: [
+      { href: "/admin/articles", label: "Artikel", icon: Newspaper, matchPrefix: true },
+      { href: "/admin/faq", label: "FAQ", icon: HelpCircle, matchPrefix: true },
+    ],
+  },
+  {
+    id: "system",
+    label: "Sistem",
+    icon: Settings,
+    items: [
+      {
+        href: "/admin/users",
+        label: "Pengaturan Admin",
+        icon: Shield,
+        superOnly: true,
+        matchPrefix: true,
+      },
+    ],
+  },
+];
+
+/** Flat list for backwards compatibility (dashboard icons, etc.) */
 export const adminNavItems: AdminNavItem[] = [
-  { href: "/admin/dashboard", label: "Dashboard", icon: LayoutDashboard },
-  { href: "/admin/products", label: "Produk", icon: Package },
-  { href: "/admin/categories", label: "Kategori", icon: FolderTree },
-  { href: "/admin/articles", label: "Artikel", icon: Newspaper },
-  { href: "/admin/reviews", label: "Ulasan", icon: MessageSquare },
-  { href: "/admin/faq", label: "FAQ", icon: HelpCircle },
-  { href: "/admin/rfq", label: "RFQ", icon: FileText },
-  { href: "/admin/favorites", label: "Favorit", icon: Heart },
-  { href: "/admin/customers", label: "Pelanggan", icon: Users },
-  { href: "/admin/users", label: "Admin", icon: Shield, superOnly: true },
+  adminNavDashboard,
+  ...adminNavGroups.flatMap((g) => g.items),
 ];
 
 export type AdminModuleRow = {

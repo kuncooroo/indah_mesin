@@ -10,23 +10,38 @@ function isMissingTableError(error: unknown) {
   );
 }
 
-/** Count aman jika migrasi Faq/ProductReview belum di-deploy. */
-export async function safeFaqCount(where?: Prisma.FaqWhereInput) {
+async function safeCount(countFn: () => Promise<number>) {
   try {
-    return await prisma.faq.count({ where });
+    return await countFn();
   } catch (error) {
     if (isMissingTableError(error)) return 0;
     throw error;
   }
 }
 
+/** Count aman jika migrasi Faq/ProductReview belum di-deploy. */
+export async function safeFaqCount(where?: Prisma.FaqWhereInput) {
+  return safeCount(() => prisma.faq.count({ where }));
+}
+
 export async function safeProductReviewCount(where?: Prisma.ProductReviewWhereInput) {
-  try {
-    return await prisma.productReview.count({ where });
-  } catch (error) {
-    if (isMissingTableError(error)) return 0;
-    throw error;
-  }
+  return safeCount(() => prisma.productReview.count({ where }));
+}
+
+export async function safeCompanyCount(where?: Prisma.CompanyWhereInput) {
+  return safeCount(() => prisma.company.count({ where }));
+}
+
+export async function safeCompanyAddressCount(where?: Prisma.CompanyAddressWhereInput) {
+  return safeCount(() => prisma.companyAddress.count({ where }));
+}
+
+export async function safeOrderCount(where?: Prisma.OrderWhereInput) {
+  return safeCount(() => prisma.order.count({ where }));
+}
+
+export async function safeArchiveDocumentCount(where?: Prisma.ArchiveDocumentWhereInput) {
+  return safeCount(() => prisma.archiveDocument.count({ where }));
 }
 
 export async function safeFaqFindMany(args: Prisma.FaqFindManyArgs) {
