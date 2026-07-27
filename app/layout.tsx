@@ -16,17 +16,48 @@ const jetbrainsMono = JetBrains_Mono({
   weight: ["400", "500", "700"],
 });
 
+const siteUrl = (process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000").replace(/\/$/, "");
+
 export const metadata: Metadata = {
-  title: "Indah Mesin — Marketplace Mesin Industri",
+  metadataBase: new URL(siteUrl),
+  title: {
+    default: "IndustrialX — Marketplace Mesin Industri | Indah Mesin",
+    template: "%s | IndustrialX",
+  },
   description:
-    "PWA Marketplace mesin industri B2B dengan pemesanan via WhatsApp (CTWA)",
-  applicationName: "Indah Mesin",
+    "IndustrialX by Indah Mesin — katalog mesin industri F&B, sterilisasi, penutup kaleng, seal kemasan. Request quotation & PO via WhatsApp.",
+  applicationName: "IndustrialX",
+  keywords: [
+    "mesin industri",
+    "Indah Mesin",
+    "retort sterilizer",
+    "can seamer",
+    "food processing equipment",
+    "IndustrialX",
+  ],
+  openGraph: {
+    type: "website",
+    locale: "id_ID",
+    siteName: "IndustrialX",
+    title: "IndustrialX — Marketplace Mesin Industri",
+    description:
+      "Temukan mesin industri, spesifikasi teknis, dan ajukan penawaran resmi via WhatsApp.",
+    url: siteUrl,
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "IndustrialX — Marketplace Mesin Industri",
+    description: "Katalog mesin industri B2B — Indah Mesin, Malang.",
+  },
+  alternates: {
+    canonical: siteUrl,
+  },
   appleWebApp: {
     capable: true,
     statusBarStyle: "default",
-    title: "Indah Mesin",
+    title: "IndustrialX",
   },
-    icons: {
+  icons: {
     icon: [{ url: "/icon.svg", type: "image/svg+xml" }],
     apple: [{ url: "/icons/icon-192.png", sizes: "192x192" }],
   },

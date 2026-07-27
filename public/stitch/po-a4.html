@@ -120,29 +120,8 @@
     </style>
 </head>
 <body class="bg-surface-container-low font-body-md text-on-surface">
-<!-- Header Actions (Fixed) -->
-<header class="no-print sticky top-0 z-50 bg-surface border-b border-border-subtle h-16 flex items-center justify-between px-6">
-<div class="flex items-center gap-4">
-<button class="flex items-center gap-2 text-on-surface-variant hover:text-primary transition-colors">
-<span class="material-symbols-outlined">arrow_back</span>
-<span class="font-button-text text-button-text">Back to Marketplace</span>
-</button>
-<div class="h-6 w-px bg-border-subtle mx-2"></div>
-<span class="font-headline-md text-headline-md font-bold text-primary">IndustrialX</span>
-</div>
-<div class="flex items-center gap-3">
-<button class="flex items-center gap-2 px-4 py-2 border border-outline text-on-surface-variant rounded-lg hover:bg-surface-variant transition-all font-button-text text-button-text" onclick="window.print()">
-<span class="material-symbols-outlined">print</span>
-                Print PDF
-            </button>
-<button class="flex items-center gap-2 px-6 py-2 bg-primary text-on-primary rounded-lg shadow-lg hover:opacity-90 transition-all font-button-text text-button-text">
-<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">download</span>
-                Download PO
-            </button>
-</div>
-</header>
-<!-- Page Content -->
-<main class="py-12 px-4">
+<!-- Page Content (toolbar hanya di shell Next.js /po-preview/pdf) -->
+<main class="py-8 px-4 md:py-12">
 <div class="a4-container p-[20mm] flex flex-col gap-10">
 <!-- Document Header -->
 <div class="flex justify-between items-start border-b-2 border-primary pb-8">
@@ -171,7 +150,7 @@
 <p class="font-body-sm text-body-sm text-on-surface-variant">Attn: John Doe (Procurement Manager)</p>
 <p class="font-body-sm text-body-sm text-on-surface-variant">Industrial Zone Sector 4, Building 12</p>
 <p class="font-body-sm text-body-sm text-on-surface-variant">Jakarta, 12340, Indonesia</p>
-<p class="font-body-sm text-body-sm text-on-surface-variant">+62 21 555 0192</p>
+<p class="font-body-sm text-body-sm text-on-surface-variant">+62 818 0892 5555</p>
 </div>
 </div>
 <!-- Vendor Info -->
@@ -179,10 +158,10 @@
 <h2 class="font-label-technical text-label-technical text-primary uppercase border-b border-border-subtle pb-2">To (Vendor)</h2>
 <div class="space-y-1">
 <p class="font-body-md text-body-md font-bold text-on-surface">IndustrialX Marketplace</p>
-<p class="font-body-sm text-body-sm text-on-surface-variant">Industrial Solutions Dept.</p>
-<p class="font-body-sm text-body-sm text-on-surface-variant">Sudirman Central Business District</p>
-<p class="font-body-sm text-body-sm text-on-surface-variant">South Jakarta, 12190, Indonesia</p>
-<p class="font-body-sm text-body-sm text-on-surface-variant">support@industrialx.com</p>
+<p class="font-body-sm text-body-sm text-on-surface-variant">Indah Mesin</p>
+<p class="font-body-sm text-body-sm text-on-surface-variant">Jalan Raya Randugading No.137 RT 12 RW 03</p>
+<p class="font-body-sm text-body-sm text-on-surface-variant">Tajinan, Kabupaten Malang, Jawa Timur 65172</p>
+<p class="font-body-sm text-body-sm text-on-surface-variant">info@indahmesin.com • +62 818 0892 5555</p>
 </div>
 </div>
 </div>
@@ -276,25 +255,6 @@
 <span class="material-symbols-outlined">desktop_windows</span>
 <p class="text-body-sm font-medium">Use Desktop to export or print this PO document.</p>
 </div>
-<!-- Predicted Navigation Components (Mocked) -->
-<nav class="no-print fixed bottom-0 left-0 w-full flex justify-around items-center h-16 bg-surface border-t border-border-subtle shadow-lg md:hidden">
-<div class="flex flex-col items-center justify-center text-primary bg-secondary-container/20 rounded-xl px-3 py-1">
-<span class="material-symbols-outlined">home</span>
-<span class="font-body-sm text-body-sm">Home</span>
-</div>
-<div class="flex flex-col items-center justify-center text-on-surface-variant">
-<span class="material-symbols-outlined">category</span>
-<span class="font-body-sm text-body-sm">Categories</span>
-</div>
-<div class="flex flex-col items-center justify-center text-on-surface-variant">
-<span class="material-symbols-outlined">history</span>
-<span class="font-body-sm text-body-sm">History</span>
-</div>
-<div class="flex flex-col items-center justify-center text-on-surface-variant">
-<span class="material-symbols-outlined">chat_bubble</span>
-<span class="font-body-sm text-body-sm">Contact</span>
-</div>
-</nav>
 <script>
         // Simple micro-interaction for buttons
         document.querySelectorAll('button').forEach(btn => {

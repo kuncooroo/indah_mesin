@@ -2,16 +2,10 @@ import "dotenv/config";
 import bcrypt from "bcrypt";
 import { PrismaMariaDb } from "@prisma/adapter-mariadb";
 import { PrismaClient, Role, StockStatus, RfqStatus, VerificationStatus, CompanyType, OrderStatus, ArchiveDocumentType } from "@prisma/client";
-import {
-  MARKETPLACE_CATEGORIES,
-  MARKETPLACE_PRODUCTS,
-  MARKETPLACE_SKUS,
-  MARKETPLACE_QUICK_FILTERS,
-  catalogProductToSeedStatus,
-  parseCatalogPriceIdr,
-} from "../lib/marketplace-catalog";
+import { MARKETPLACE_CATEGORIES, MARKETPLACE_PRODUCTS, MARKETPLACE_SKUS, MARKETPLACE_QUICK_FILTERS, catalogProductToSeedStatus, parseCatalogPriceIdr } from "../lib/marketplace-catalog";
 import { stitchArticles } from "../lib/stitch-screens";
 import { indahMesinContact } from "../lib/contact";
+import { getProductDetailEnrichment } from "../lib/product-detail-enrichment";
 
 const url = process.env.DATABASE_URL;
 if (!url) {
@@ -161,7 +155,21 @@ async function main() {
     const slug = p.id;
     const price = parseCatalogPriceIdr(p.priceLabel);
     const stockStatus = catalogProductToSeedStatus(p.status);
-    const indentDays = p.status === "indent" ? (p.sku === "IMS-CAN-LINE" ? 45 : p.sku === "IMS-PROD-1000" ? 60 : 21) : null;
+    const indentDays =
+      p.status === "indent"
+        ? p.sku === "IMS-CAN-LINE"
+          ? 45
+          : p.sku === "IMS-PROD-1000"
+            ? 60
+            : 21
+        : null;
+
+    const detail = getProductDetailEnrichment(p.sku);
+    const featureTexts = detail?.features ?? p.features ?? [];
+    const specRows = detail?.specs ?? p.specs ?? [];
+    const galleryUrls = detail?.gallery?.length ? detail.gallery : p.image ? [p.image] : [];
+    const brochureDoc = detail?.downloads.find((d) => d.icon === "picture_as_pdf");
+    const sopDoc = detail?.downloads.find((d) => d.icon === "description");
 
     const product = await prisma.product.upsert({
       where: { sku: p.sku },
@@ -175,6 +183,8 @@ async function main() {
         currency: "IDR",
         price,
         priceNote: p.priceNote ?? p.subtitle,
+        brochureUrl: brochureDoc ? "/uploads/placeholder-brosur.pdf" : undefined,
+        sopUrl: sopDoc ? "/uploads/placeholder-sop.pdf" : undefined,
         isPublished: true,
       },
       update: {
@@ -185,26 +195,28 @@ async function main() {
         indentDays,
         price,
         priceNote: p.priceNote ?? p.subtitle,
+        brochureUrl: brochureDoc ? "/uploads/placeholder-brosur.pdf" : undefined,
+        sopUrl: sopDoc ? "/uploads/placeholder-sop.pdf" : undefined,
         isPublished: true,
       },
     });
 
     await prisma.productMedia.deleteMany({ where: { productId: product.id } });
-    if (p.image) {
-      await prisma.productMedia.create({
-        data: {
+    if (galleryUrls.length) {
+      await prisma.productMedia.createMany({
+        data: galleryUrls.map((url, i) => ({
           productId: product.id,
-          url: p.image,
-          isPrimary: true,
-          sortOrder: 0,
-        },
+          url,
+          isPrimary: i === 0,
+          sortOrder: i,
+        })),
       });
     }
 
     await prisma.productFeature.deleteMany({ where: { productId: product.id } });
-    if (p.features?.length) {
+    if (featureTexts.length) {
       await prisma.productFeature.createMany({
-        data: p.features.map((text, i) => ({
+        data: featureTexts.map((text, i) => ({
           productId: product.id,
           text,
           sortOrder: i,
@@ -213,9 +225,9 @@ async function main() {
     }
 
     await prisma.productSpecification.deleteMany({ where: { productId: product.id } });
-    if (p.specs?.length) {
+    if (specRows.length) {
       await prisma.productSpecification.createMany({
-        data: p.specs.map((s, i) => ({
+        data: specRows.map((s, i) => ({
           productId: product.id,
           attribute: s.label,
           value: s.value,
@@ -223,27 +235,19 @@ async function main() {
         })),
       });
     }
-  }
 
-  const retort = await prisma.product.findUnique({ where: { sku: "FDP-RTR-500" } });
-  if (retort) {
-    await prisma.productDocument.deleteMany({ where: { productId: retort.id } });
-    await prisma.productDocument.createMany({
-      data: [
-        {
-          productId: retort.id,
-          title: "Brosur Retort-Sterilizer.pdf",
-          subtitle: "Download Brochure",
-          fileUrl: "/uploads/placeholder-brosur.pdf",
-        },
-        {
-          productId: retort.id,
-          title: "SOP-Operasional-Retort.pdf",
-          subtitle: "Technical Manual",
-          fileUrl: "/uploads/placeholder-sop.pdf",
-        },
-      ],
-    });
+    if (detail?.downloads.length) {
+      await prisma.productDocument.deleteMany({ where: { productId: product.id } });
+      await prisma.productDocument.createMany({
+        data: detail.downloads.map((d) => ({
+          productId: product.id,
+          title: d.title,
+          subtitle: d.subtitle,
+          fileUrl:
+            d.icon === "picture_as_pdf" ? "/uploads/placeholder-brosur.pdf" : "/uploads/placeholder-sop.pdf",
+        })),
+      });
+    }
   }
 
   for (const a of stitchArticles) {
@@ -318,7 +322,7 @@ async function main() {
     },
   });
 
-  const defaultSavedSkus = ["FDP-RTR-500", "IMS-CAN-80", "IMS-SEAL-450"] as const;
+  const defaultSavedSkus = ["FDP-RTR-500", "IMS-STEAM-200", "IMS-CAN-80"] as const;
   for (const sku of defaultSavedSkus) {
     const product = await prisma.product.findUnique({ where: { sku } });
     if (!product) continue;

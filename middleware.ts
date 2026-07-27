@@ -22,6 +22,10 @@ export default withAuth(
       }
     }
 
+    if (path.startsWith("/profile/") && !req.nextauth.token) {
+      return NextResponse.redirect(new URL("/profile", req.url));
+    }
+
     return NextResponse.next();
   },
   {
@@ -34,6 +38,9 @@ export default withAuth(
         if (path.startsWith("/admin")) {
           return Boolean(token);
         }
+        if (path.startsWith("/profile")) {
+          return true;
+        }
         return true;
       },
     },
@@ -41,5 +48,5 @@ export default withAuth(
 );
 
 export const config = {
-  matcher: ["/admin/:path*"],
+  matcher: ["/admin/:path*", "/profile/:path*"],
 };

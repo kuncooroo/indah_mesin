@@ -2,18 +2,23 @@
 
 import Link from "next/link";
 import Image from "next/image";
+import { useEffect, useMemo, useState } from "react";
 import { Ms } from "@/components/stitch/ms";
 import type { Product } from "@/lib/products";
-import { WHATSAPP_ADMIN } from "@/lib/design-tokens";
+import {
+  buildPoQuotationMessage,
+  buildWhatsAppUrlFromText,
+  resolveAppOrigin,
+} from "@/lib/whatsapp";
+import {
+  defaultVoltageForProduct,
+  readPoDraft,
+  type PoDraft,
+} from "@/lib/po-draft";
 import { ShopMobileFixedBar } from "@/components/layout/shop-mobile-fixed-bar";
 
 const PO_PREVIEW_IMAGE =
   "https://lh3.googleusercontent.com/aida-public/AB6AXuAap20epLLo9exrbwx0nQ1LnM0e4u76CQ3937L4nLzfNEERpTtzK9TGhFVp9Lymk5RpYTpXE3FM6ZCFcU5AU7ejYe5lA0sNbzKXE_VhYN8g-1sgTtXlq-wTWxHjOETgo3AzhCF0XcktctN0Sv7wQJvWLhUSkYkd8pCr76qDEpGEgZBRVh3q8Dy8aH4fhTY3ebh4SZEvTVOwEbbX9drNuyI-bQXd7TO7c3T1N1mIxqWdnzk9et9b4W_6kVlfJhsWNFBf7a6XIprV7oU7";
-
-const DEMO_PIC = "John Doe";
-const DEMO_COMPANY = "Global Food Processing Ltd.";
-const DEMO_PHONE = "+62 812-3456-7890";
-const DEMO_ADDRESS = "Jl. Industri Raya No. 45, Cikarang, Bekasi, Jawa Barat";
 
 function WaIcon() {
   return (
@@ -23,48 +28,54 @@ function WaIcon() {
   );
 }
 
-function buildPoPreviewMessage(product: Product, appUrl: string) {
-  const shortName =
-    product.sku === "FDP-RTR-500" ? "Industrial Retort Sterilizer" : product.name;
-  return `Hello IndustrialX Team,
-
-I am interested in requesting a quotation for:
-*Product:* ${shortName} (${product.sku})
-*Voltage:* 380V / 3 Phase
-*Quantity:* 1 Unit
-
-*Company:* ${DEMO_COMPANY}
-*Link:* ${appUrl}/products/${product.id}
-
-Please provide the detailed manual and a formal quotation including shipping to Jakarta.`;
-}
-
-function productCardTitle(product: Product) {
-  if (product.sku === "FDP-RTR-500") return "Industrial Retort Sterilizer";
-  return product.name;
-}
-
 export function PoPreviewContent({ poProduct }: { poProduct?: Product }) {
-  const backHref = poProduct ? `/products/${poProduct.id}` : "/products/fdp-rtr-500";
-
-  const appUrl =
-    typeof window !== "undefined"
-      ? window.location.origin
-      : (process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000");
+  const backHref = poProduct ? `/products/${poProduct.id}` : "/beranda-artikel";
 
   const productForMessage =
     poProduct ??
     ({
-      id: "fdp-rtr-500",
+      id: "industrial-retort-sterilizer-high-pressure-steam",
       sku: "FDP-RTR-500",
-      name: "Industrial Retort Sterilizer",
+      name: "Industrial Retort Sterilizer - High Pressure Steam",
     } as Product);
 
-  const messagePreview = buildPoPreviewMessage(productForMessage, appUrl);
-  const waHref = `https://wa.me/${WHATSAPP_ADMIN}?text=${encodeURIComponent(messagePreview)}`;
+  const [draft, setDraft] = useState<PoDraft | null>(null);
+  const [appUrl, setAppUrl] = useState(
+    () => process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000"
+  );
+
+  const productId = productForMessage.id;
+
+  useEffect(() => {
+    setAppUrl(resolveAppOrigin());
+    const saved = readPoDraft(productId);
+    setDraft({
+      ...saved,
+      voltage: saved.voltage || defaultVoltageForProduct(poProduct),
+    });
+  }, [productId, poProduct]);
+
+  const messagePreview = useMemo(() => {
+    if (!draft) return "";
+    return buildPoQuotationMessage({
+      product: productForMessage,
+      appUrl,
+      voltage: draft.voltage,
+      quantity: draft.quantity,
+      company: draft.companyName,
+    });
+  }, [appUrl, draft, productForMessage]);
+
+  const waHref = buildWhatsAppUrlFromText(messagePreview);
   const pdfHref = poProduct
     ? `/po-preview/pdf?product=${encodeURIComponent(poProduct.id)}`
     : "/po-preview/pdf";
+  const editHref = poProduct
+    ? `/po-preview/edit?product=${encodeURIComponent(poProduct.id)}`
+    : "/po-preview/edit?product=industrial-retort-sterilizer-high-pressure-steam";
+
+  const heroImage = poProduct?.image || PO_PREVIEW_IMAGE;
+  const statusLabel = poProduct?.statusLabel ?? "Ready Stock";
 
   return (
     <>
@@ -87,23 +98,15 @@ export function PoPreviewContent({ poProduct }: { poProduct?: Product }) {
         {poProduct && (
           <section className="flex flex-col overflow-hidden rounded-lg border border-border-subtle bg-white shadow-sm">
             <div className="relative h-48 w-full shrink-0">
-              <Image
-                src={PO_PREVIEW_IMAGE}
-                alt={poProduct.name}
-                fill
-                className="object-cover"
-                sizes="430px"
-              />
+              <Image src={heroImage} alt={poProduct.name} fill className="object-cover" sizes="430px" />
             </div>
             <div className="flex flex-col justify-center p-6">
               <span className="mb-1 font-label-technical text-label-technical text-primary">
                 SKU: {poProduct.sku}
               </span>
-              <h2 className="mb-2 font-headline-md text-headline-md text-on-surface">
-                {productCardTitle(poProduct)}
-              </h2>
+              <h2 className="mb-2 font-headline-md text-headline-md text-on-surface">{poProduct.name}</h2>
               <span className="w-fit rounded-full bg-status-ready/10 px-2 py-0.5 text-xs font-bold uppercase tracking-wider text-status-ready">
-                Ready Stock
+                {statusLabel}
               </span>
             </div>
           </section>
@@ -120,13 +123,13 @@ export function PoPreviewContent({ poProduct }: { poProduct?: Product }) {
                 <tr>
                   <td className="px-3 py-2 font-medium text-on-surface-variant">Voltage</td>
                   <td className="px-3 py-2 text-right font-label-technical text-on-surface">
-                    380V / 3 Phase
+                    {draft?.voltage ?? "—"}
                   </td>
                 </tr>
                 <tr>
                   <td className="px-3 py-2 font-medium text-on-surface-variant">Quantity</td>
                   <td className="px-3 py-2 text-right font-label-technical text-on-surface">
-                    1 Unit
+                    {draft?.quantity ?? 1} Unit{draft && draft.quantity > 1 ? "s" : ""}
                   </td>
                 </tr>
               </tbody>
@@ -139,21 +142,22 @@ export function PoPreviewContent({ poProduct }: { poProduct?: Product }) {
               Company Information
             </h3>
             <div className="space-y-3">
-              {[
-                ["Your Name (PIC)", DEMO_PIC],
-                ["Company Name (Nama Usaha)", DEMO_COMPANY],
-                ["Phone Number", DEMO_PHONE],
-                ["Company Address", DEMO_ADDRESS],
-              ].map(([label, value]) => (
-                <div key={label}>
-                  <label className="text-xs font-bold uppercase tracking-tighter text-on-surface-variant">
-                    {label}
-                  </label>
-                  <p className="border-b border-dashed border-outline-variant py-1 text-body-md">
-                    {value}
-                  </p>
-                </div>
-              ))}
+              {draft &&
+                (
+                  [
+                    ["Your Name (PIC)", draft.picName],
+                    ["Company Name (Nama Usaha)", draft.companyName],
+                    ["Phone Number", draft.phone],
+                    ["Company Address", draft.address],
+                  ] as const
+                ).map(([label, value]) => (
+                  <div key={label}>
+                    <label className="text-xs font-bold uppercase tracking-tighter text-on-surface-variant">
+                      {label}
+                    </label>
+                    <p className="border-b border-dashed border-outline-variant py-1 text-body-md">{value}</p>
+                  </div>
+                ))}
             </div>
           </section>
         </div>
@@ -178,22 +182,21 @@ export function PoPreviewContent({ poProduct }: { poProduct?: Product }) {
           </div>
         </section>
 
-        <section className="space-y-3">
-          <h3 className="font-button-text text-button-text text-primary">
-            Message Preview (WhatsApp)
-          </h3>
-          <div className="relative rounded-lg border border-border-subtle bg-metallic-bg p-4 font-body-sm text-on-surface-variant">
-            <Ms
-              name="chat"
-              className="absolute right-4 top-4 text-4xl text-primary opacity-20"
-            />
-            <p className="whitespace-pre-line leading-relaxed">{messagePreview}</p>
-          </div>
-        </section>
+        {messagePreview ? (
+          <section className="space-y-3">
+            <h3 className="font-button-text text-button-text text-primary">
+              Message Preview (WhatsApp)
+            </h3>
+            <div className="relative rounded-lg border border-border-subtle bg-metallic-bg p-4 font-body-sm text-on-surface-variant">
+              <Ms name="chat" className="absolute right-4 top-4 text-4xl text-primary opacity-20" />
+              <p className="whitespace-pre-line leading-relaxed">{messagePreview}</p>
+            </div>
+          </section>
+        ) : null}
 
         <div className="flex flex-col items-center gap-4 py-4">
           <Link
-            href="/marketplace-flow"
+            href={editHref}
             className="flex items-center gap-2 font-button-text text-primary transition-all active:opacity-80"
           >
             <Ms name="edit" />
@@ -212,7 +215,7 @@ export function PoPreviewContent({ poProduct }: { poProduct?: Product }) {
       </main>
 
       <ShopMobileFixedBar
-        bottomClass="bottom-16"
+        bottomClass="bottom-0"
         className="sticky-cta-shadow bg-surface/80 p-4 backdrop-blur-md"
       >
         <a

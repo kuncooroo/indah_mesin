@@ -6,8 +6,7 @@ export function ServiceWorkerRegister() {
   useEffect(() => {
     if (
       typeof window !== "undefined" &&
-      "serviceWorker" in navigator &&
-      process.env.NODE_ENV === "production"
+      "serviceWorker" in navigator
     ) {
       navigator.serviceWorker.register("/sw.js").catch(console.error);
     }

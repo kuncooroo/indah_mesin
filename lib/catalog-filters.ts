@@ -9,6 +9,7 @@ export type CatalogFilterState = {
   indent: boolean;
   minPrice: number;
   sort: CatalogSort;
+  brand: string;
 };
 
 export function filterAndSortProducts(products: Product[], filters: CatalogFilterState): Product[] {
@@ -39,6 +40,10 @@ export function filterAndSortProducts(products: Product[], filters: CatalogFilte
 
   if (filters.minPrice > 0) {
     list = list.filter((p) => (p.priceAmount ?? 0) >= filters.minPrice);
+  }
+
+  if (filters.brand && filters.brand !== "all") {
+    list = list.filter((p) => p.category === filters.brand || p.categoryLabel === filters.brand);
   }
 
   switch (filters.sort) {
@@ -73,9 +78,11 @@ export function quickFilterToState(
     case "indent":
       return { ready: false, indent: true, sort: "newest" };
     case "new":
-      return { sort: "newest" };
+      return { sort: "newest", ready: true, indent: true };
     case "price":
-      return { sort: "price_asc" };
+      return { sort: "price_asc", ready: true, indent: true };
+    case "heavy":
+      return { sort: "price_desc", minPrice: 200_000_000, ready: true, indent: true };
     default:
       return {};
   }

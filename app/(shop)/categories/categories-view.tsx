@@ -13,13 +13,32 @@ import {
   type CatalogSort,
 } from "@/lib/catalog-filters";
 import { cn } from "@/lib/utils";
-import { IndustrialTopBar } from "@/components/shop/industrial-top-bar";
+import { IndustrialHeader } from "@/components/shop/industrial-header";
+import { PwaBanner } from "@/components/shop/pwa-banner";
 import { CategoryFiltersPanel } from "@/components/shop/category-filters-panel";
 import { CategoryProductCard } from "@/components/shop/category-product-card";
+
+const PAGE_SIZE = 4;
 
 function parseSort(raw: string | null): CatalogSort {
   if (raw === "price_asc" || raw === "price_desc" || raw === "name") return raw;
   return "newest";
+}
+
+const ALL_CATEGORY = { id: "all", name: "All", icon: "apps" as const };
+
+function defaultFilters(searchParams: URLSearchParams): CatalogFilterState {
+  const quick = searchParams.get("filter");
+  const quickPatch = quickFilterToState(quick);
+  return {
+    q: searchParams.get("q") ?? "",
+    category: "all",
+    ready: quickPatch.ready ?? true,
+    indent: quickPatch.indent ?? true,
+    minPrice: quickPatch.minPrice ?? 0,
+    sort: quickPatch.sort ?? parseSort(searchParams.get("sort")),
+    brand: "all",
+  };
 }
 
 export function CategoriesView({
@@ -30,90 +49,86 @@ export function CategoriesView({
   categories: ShopCategory[];
 }) {
   const tabs = categories.length > 0 ? categories : [...MARKETPLACE_CATEGORIES];
+  const tabsWithAll = [ALL_CATEGORY, ...tabs];
   const searchParams = useSearchParams();
   const router = useRouter();
 
   const initialCat = searchParams.get("cat");
   const defaultCat =
-    initialCat && tabs.some((c) => c.id === initialCat) ? initialCat : tabs[0]?.id ?? "mesin-sterilisasi";
-
-  const quick = searchParams.get("filter");
-  const quickPatch = quickFilterToState(quick);
+    initialCat && tabs.some((c) => c.id === initialCat) ? initialCat : "all";
 
   const [activeCat, setActiveCat] = useState(defaultCat);
-  const [filters, setFilters] = useState<CatalogFilterState>({
-    q: searchParams.get("q") ?? "",
-    category: defaultCat,
-    ready: quickPatch.ready ?? true,
-    indent: quickPatch.indent ?? true,
-    minPrice: 0,
-    sort: quickPatch.sort ?? parseSort(searchParams.get("sort")),
-  });
+  const [applied, setApplied] = useState<CatalogFilterState>(() => defaultFilters(searchParams));
+  const [draft, setDraft] = useState<CatalogFilterState>(() => defaultFilters(searchParams));
+  const [page, setPage] = useState(1);
+  const [filtersOpen, setFiltersOpen] = useState(false);
 
   useEffect(() => {
     setActiveCat(defaultCat);
-    setFilters((f) => ({
-      ...f,
-      category: defaultCat,
-      q: searchParams.get("q") ?? "",
-      sort: quickPatch.sort ?? parseSort(searchParams.get("sort")),
-      ready: quickPatch.ready ?? f.ready,
-      indent: quickPatch.indent ?? f.indent,
-    }));
-  }, [defaultCat, searchParams, quickPatch.indent, quickPatch.ready, quickPatch.sort]);
+    const next = defaultFilters(searchParams);
+    setApplied(next);
+    setDraft(next);
+    setPage(1);
+  }, [defaultCat, searchParams]);
 
   const maxPrice = useMemo(
     () => Math.max(...products.map((p) => p.priceAmount ?? 0), 500_000_000),
     [products]
   );
 
-  const filtered = useMemo(
-    () =>
-      filterAndSortProducts(products, {
-        ...filters,
-        category: activeCat,
-      }),
-    [products, filters, activeCat]
-  );
+  const brandOptions = useMemo(() => {
+    const cats = tabs.map((t) => ({ value: t.id, label: t.name }));
+    return [{ value: "all", label: "All Manufacturers" }, ...cats];
+  }, [tabs]);
 
-  const activeCategoryName = tabs.find((c) => c.id === activeCat)?.name ?? "Kategori";
+  const filtered = useMemo(() => {
+    const categoryForFilter =
+      applied.brand !== "all" ? applied.brand : activeCat === "all" ? "all" : activeCat;
+    return filterAndSortProducts(products, {
+      ...applied,
+      category: categoryForFilter,
+      brand: "all",
+      q: applied.q || searchParams.get("q") || "",
+    });
+  }, [products, applied, activeCat, searchParams]);
 
-  function syncUrl(cat: string, q: string) {
-    const params = new URLSearchParams();
-    if (cat && cat !== tabs[0]?.id) params.set("cat", cat);
-    if (q.trim()) params.set("q", q.trim());
+  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  const safePage = Math.min(page, totalPages);
+  const pageItems = filtered.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE);
+
+  const activeCategoryName =
+    activeCat === "all"
+      ? "Catalog"
+      : tabs.find((c) => c.id === activeCat)?.name ?? "Category";
+
+  function syncUrl(cat: string) {
+    const params = new URLSearchParams(searchParams.toString());
+    if (cat && cat !== "all") params.set("cat", cat);
+    else params.delete("cat");
     const qs = params.toString();
     router.replace(`/categories${qs ? `?${qs}` : ""}`, { scroll: false });
   }
 
+  function applyFilters() {
+    setApplied({ ...draft, q: applied.q, sort: applied.sort });
+    setPage(1);
+  }
+
   return (
     <>
-      <IndustrialTopBar />
+      <PwaBanner />
+      <IndustrialHeader />
 
-      <main className="mx-auto w-full max-w-7xl md:px-margin-desktop">
-        <section className="space-y-4 px-margin-mobile py-4">
-          <h2 className="font-headline-lg-mobile text-headline-lg-mobile text-primary md:font-headline-lg md:text-headline-lg">
-            Kategori &amp; Filter
+      <main className="mx-auto w-full">
+        <section className="px-margin-mobile py-4">
+          <h2 className="font-headline-lg-mobile text-headline-lg-mobile text-primary">
+            Categories &amp; Filters
           </h2>
-          <div className="relative max-w-3xl">
-            <Ms name="search" className="absolute left-4 top-1/2 -translate-y-1/2 text-outline" />
-            <input
-              type="search"
-              value={filters.q}
-              onChange={(e) => {
-                const q = e.target.value;
-                setFilters((f) => ({ ...f, q }));
-                syncUrl(activeCat, q);
-              }}
-              placeholder="Cari mesin, SKU..."
-              className="w-full rounded-xl border border-border-subtle bg-white py-3 pl-12 pr-4 font-body-md shadow-sm focus:border-primary focus:ring-2 focus:ring-primary"
-            />
-          </div>
         </section>
 
-        <section className="mb-6 overflow-x-auto whitespace-nowrap border-b border-border-subtle px-margin-mobile hide-scrollbar">
+        <section className="mb-6 overflow-x-auto hide-scrollbar whitespace-nowrap border-b border-border-subtle px-margin-mobile">
           <div className="flex gap-8">
-            {tabs.map(({ id, name, icon }) => {
+            {tabsWithAll.map(({ id, name, icon }) => {
               const active = activeCat === id;
               return (
                 <button
@@ -121,10 +136,11 @@ export function CategoriesView({
                   type="button"
                   onClick={() => {
                     setActiveCat(id);
-                    syncUrl(id, filters.q);
+                    syncUrl(id);
+                    setPage(1);
                   }}
                   className={cn(
-                    "flex flex-col items-center gap-1 py-3 transition-all",
+                    "flex shrink-0 flex-col items-center gap-1 py-3 transition-all",
                     active
                       ? "active-category text-primary"
                       : "text-on-surface-variant hover:text-primary"
@@ -138,36 +154,100 @@ export function CategoriesView({
           </div>
         </section>
 
-        <div className="md:grid md:grid-cols-12 md:gap-gutter">
-          <CategoryFiltersPanel
-            filters={filters}
-            maxPrice={maxPrice}
-            onChange={(patch) => setFilters((f) => ({ ...f, ...patch }))}
-          />
+        <CategoryFiltersPanel
+          draft={draft}
+          onDraftChange={(patch) => setDraft((d) => ({ ...d, ...patch }))}
+          onApply={applyFilters}
+          maxPrice={maxPrice}
+          brandOptions={brandOptions}
+          mobileOpen={filtersOpen}
+          onToggleMobile={() => setFiltersOpen((o) => !o)}
+        />
 
-          <div className="px-margin-mobile py-6 md:col-span-9 md:px-0 md:py-0">
-            <div className="mb-6 flex items-center justify-between">
-              <p className="text-body-sm text-on-surface-variant">
-                <span className="font-bold text-primary">{filtered.length}</span> Mesin{" "}
-                {activeCategoryName} Ditemukan
+        <div className="px-margin-mobile py-6">
+          <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <p className="text-body-sm text-on-surface-variant">
+              <span className="font-bold text-primary">{filtered.length}</span>{" "}
+              {activeCategoryName} Machines Found
+            </p>
+            <div className="flex items-center gap-1">
+              <span className="text-body-sm text-on-surface-variant">Sort:</span>
+              <div className="relative inline-flex items-center">
+                <select
+                  value={applied.sort}
+                  onChange={(e) => {
+                    const sort = e.target.value as CatalogSort;
+                    setApplied((a) => ({ ...a, sort }));
+                    setDraft((d) => ({ ...d, sort }));
+                    setPage(1);
+                  }}
+                  className="w-auto cursor-pointer appearance-none border-none bg-transparent py-0 pl-0 pr-4 font-button-text text-body-sm text-primary [field-sizing:content] focus:ring-0"
+                >
+                  <option value="newest">Newest</option>
+                  <option value="price_asc">Lowest Price</option>
+                  <option value="price_desc">Highest Price</option>
+                  <option value="name">Name A–Z</option>
+                </select>
+                <Ms
+                  name="expand_more"
+                  className="pointer-events-none absolute right-[-2px] text-[18px] text-primary"
+                />
+              </div>
+            </div>
+          </div>
+
+          {filtered.length === 0 ? (
+            <div className="rounded-xl border border-border-subtle bg-surface-container-low p-8 text-center">
+              <Ms name="search_off" className="mx-auto mb-2 text-4xl text-outline" />
+              <p className="font-body-md text-on-surface-variant">
+                No machines match these filters. Adjust the filters and select Apply Filters.
               </p>
             </div>
+          ) : (
+            <div className="grid grid-cols-1 gap-gutter">
+              {pageItems.map((product) => (
+                <CategoryProductCard key={product.dbProductId ?? product.sku} product={product} />
+              ))}
+            </div>
+          )}
 
-            {filtered.length === 0 ? (
-              <div className="rounded-xl border border-border-subtle bg-surface-container-low p-8 text-center">
-                <Ms name="search_off" className="mx-auto mb-2 text-4xl text-outline" />
-                <p className="font-body-md text-on-surface-variant">
-                  Tidak ada mesin sesuai filter. Coba ubah kategori atau reset filter.
-                </p>
-              </div>
-            ) : (
-              <div className="grid grid-cols-1 gap-gutter sm:grid-cols-2 lg:grid-cols-3">
-                {filtered.map((product) => (
-                  <CategoryProductCard key={product.dbProductId ?? product.sku} product={product} />
-                ))}
-              </div>
-            )}
-          </div>
+          {filtered.length > PAGE_SIZE ? (
+            <div className="mt-12 flex items-center justify-center gap-2">
+              <button
+                type="button"
+                disabled={safePage <= 1}
+                onClick={() => setPage((p) => Math.max(1, p - 1))}
+                className="flex h-10 w-10 items-center justify-center rounded-full border border-border-subtle text-on-surface-variant transition-colors hover:bg-surface-variant disabled:opacity-40"
+                aria-label="Previous page"
+              >
+                <Ms name="chevron_left" />
+              </button>
+              {Array.from({ length: totalPages }, (_, i) => i + 1).map((n) => (
+                <button
+                  key={n}
+                  type="button"
+                  onClick={() => setPage(n)}
+                  className={cn(
+                    "flex h-10 w-10 items-center justify-center rounded-full font-button-text transition-colors",
+                    n === safePage
+                      ? "bg-primary text-on-primary"
+                      : "border border-border-subtle text-on-surface-variant hover:bg-surface-variant"
+                  )}
+                >
+                  {n}
+                </button>
+              ))}
+              <button
+                type="button"
+                disabled={safePage >= totalPages}
+                onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                className="flex h-10 w-10 items-center justify-center rounded-full border border-border-subtle text-on-surface-variant transition-colors hover:bg-surface-variant disabled:opacity-40"
+                aria-label="Next page"
+              >
+                <Ms name="chevron_right" />
+              </button>
+            </div>
+          ) : null}
         </div>
       </main>
     </>

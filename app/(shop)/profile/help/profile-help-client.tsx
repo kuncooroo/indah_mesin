@@ -4,7 +4,7 @@ import { useState } from "react";
 
 import { ProfileSettingsHeader } from "@/components/shop/profile/profile-settings-header";
 import { Ms } from "@/components/stitch/ms";
-import { WHATSAPP_ADMIN } from "@/lib/design-tokens";
+import { buildWhatsAppUrlFromText } from "@/lib/whatsapp";
 import { indahMesinContact } from "@/lib/contact";
 import type { ShopFaqItem } from "@/lib/faq-shop";
 import { cn } from "@/lib/utils";
@@ -46,9 +46,9 @@ function FaqItem({ q, a }: { q: string; a: string }) {
 }
 
 export function ProfileHelpClient({ faqs }: { faqs: ShopFaqItem[] }) {
-  const waHref = `https://wa.me/${WHATSAPP_ADMIN}?text=${encodeURIComponent(
+  const waHref = buildWhatsAppUrlFromText(
     `Halo Admin ${indahMesinContact.brandName}, saya butuh bantuan dari Help Center.`
-  )}`;
+  );
 
   return (
     <>

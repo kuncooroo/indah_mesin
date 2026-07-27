@@ -29,34 +29,16 @@ const navItems = [
 
 
 function BottomNavInner({ pathname }: { pathname: string }) {
-
-  const isProfile = pathname === "/profile" || pathname.startsWith("/profile/");
-
-  const items = isProfile
-
-    ? [...navItems, { href: "/profile", label: "Profile", icon: "person" as const }]
-
-    : navItems;
-
-
-
   return (
 
     <>
 
-      {items.map(({ href, label, icon }) => {
+      {navItems.map(({ href, label, icon }) => {
 
         const active =
           pathname === href ||
           pathname.startsWith(`${href}/`) ||
-          (href === "/beranda-artikel" && pathname === "/home") ||
-          (href === "/contact" && isPoCheckoutPath(pathname));
-
-
-
-        const isSaved = href === "/favorites" && active;
-
-        const isProfileTab = href === "/profile" && active;
+          (href === "/beranda-artikel" && pathname === "/home");
 
 
 
@@ -84,17 +66,7 @@ function BottomNavInner({ pathname }: { pathname: string }) {
 
             <Ms name={icon} fill={active} />
 
-            <span
-              className={cn(
-                "text-[10px]",
-                (isSaved || isProfileTab || active) && "font-bold",
-                isProfile && !isProfileTab && "mt-0.5"
-              )}
-            >
-
-              {label}
-
-            </span>
+            <span className="text-body-sm">{label}</span>
 
           </Link>
 
@@ -113,6 +85,7 @@ function BottomNavInner({ pathname }: { pathname: string }) {
 export function ShopBottomNav() {
   const pathname = usePathname();
   const canvasClass = shopCanvasClassName(pathname);
+  if (isPoCheckoutPath(pathname)) return null;
 
   return (
     <div className="pointer-events-none fixed inset-x-0 bottom-0 z-40 flex justify-center">
@@ -127,4 +100,3 @@ export function ShopBottomNav() {
     </div>
   );
 }
-

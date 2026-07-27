@@ -5,6 +5,8 @@ import {
   adminProductListWhere,
   sortProductsByCatalogSku,
   shopCatalogCategoryWhere,
+  MARKETPLACE_CATEGORIES,
+  MARKETPLACE_PRODUCTS,
 } from "@/lib/marketplace-catalog";
 import { createProduct, updateProduct, deleteProduct } from "@/lib/admin-crud";
 import { AdminPageHeader } from "@/components/admin/admin-page-header";
@@ -69,7 +71,7 @@ export default async function AdminProductsPage({ searchParams }: PageProps) {
     <>
       <AdminPageHeader
         title="Produk"
-        description="Katalog resmi toko (6 produk) — sama dengan yang tampil di halaman user."
+        description={`Katalog resmi toko (${MARKETPLACE_PRODUCTS.length} produk) — gambar, deskripsi, dan harga sama dengan halaman user.`}
       />
       <AdminListShell
         basePath="/admin/products"
@@ -90,6 +92,7 @@ export default async function AdminProductsPage({ searchParams }: PageProps) {
                 <th className="px-4 py-3 font-medium text-neutral-600">Produk</th>
                 <th className="hidden px-4 py-3 font-medium text-neutral-600 md:table-cell">SKU</th>
                 <th className="hidden px-4 py-3 font-medium text-neutral-600 lg:table-cell">Kategori</th>
+                <th className="hidden px-4 py-3 font-medium text-neutral-600 lg:table-cell">Deskripsi</th>
                 <th className="px-4 py-3 font-medium text-neutral-600">Harga</th>
                 <th className="px-4 py-3 font-medium text-neutral-600">Status</th>
                 <th className="px-4 py-3 text-right font-medium text-neutral-600">Aksi</th>
@@ -98,7 +101,7 @@ export default async function AdminProductsPage({ searchParams }: PageProps) {
             <tbody className="divide-y divide-neutral-100">
               {rows.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="px-4 py-8 text-center text-neutral-500">
+                  <td colSpan={8} className="px-4 py-8 text-center text-neutral-500">
                     Tidak ada data.
                   </td>
                 </tr>
@@ -120,6 +123,9 @@ export default async function AdminProductsPage({ searchParams }: PageProps) {
                       </td>
                       <td className="hidden px-4 py-3 text-neutral-600 md:table-cell">{p.sku}</td>
                       <td className="hidden px-4 py-3 text-neutral-600 lg:table-cell">{p.category.name}</td>
+                      <td className="hidden max-w-xs px-4 py-3 text-neutral-600 lg:table-cell">
+                        <span className="line-clamp-2">{p.priceNote ?? "—"}</span>
+                      </td>
                       <td className="px-4 py-3 text-neutral-700">{formatPrice(p.currency, p.price)}</td>
                       <td className="px-4 py-3">
                         <span className="text-neutral-600">{p.stockStatus.replace(/_/g, " ")}</span>

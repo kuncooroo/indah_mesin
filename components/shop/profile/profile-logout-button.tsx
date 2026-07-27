@@ -1,6 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
+import { signOut } from "next-auth/react";
 import { useState } from "react";
 
 import { Ms } from "@/components/stitch/ms";
@@ -9,14 +10,13 @@ export function ProfileLogoutButton() {
   const router = useRouter();
   const [busy, setBusy] = useState(false);
 
-  function handleLogout() {
+  async function handleLogout() {
     if (busy) return;
     if (!window.confirm("Are you sure you want to logout?")) return;
     setBusy(true);
-    window.setTimeout(() => {
-      router.push("/beranda-artikel");
-      router.refresh();
-    }, 800);
+    await signOut({ redirect: false });
+    router.push("/beranda-artikel");
+    router.refresh();
   }
 
   return (
@@ -33,7 +33,7 @@ export function ProfileLogoutButton() {
         <div className="font-button-text text-button-text text-error">
           {busy ? "Logging out..." : "Logout"}
         </div>
-        <div className="font-body-sm text-body-sm text-error/70">Keluar dari Akun</div>
+        <div className="font-body-sm text-body-sm text-error/70">Sign out of your account</div>
       </div>
     </button>
   );

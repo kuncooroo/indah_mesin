@@ -10,7 +10,7 @@ import { CatalogCard } from "@/components/shop/catalog-card";
 
 import { Ms } from "@/components/stitch/ms";
 
-import { listFeaturedProducts } from "@/lib/catalog";
+import { listFeaturedProducts, listPublishedProducts } from "@/lib/catalog";
 
 import { listPublishedArticles } from "@/lib/content";
 import { listBerandaCategories } from "@/lib/shop-categories";
@@ -21,13 +21,14 @@ import { MARKETPLACE_QUICK_FILTERS } from "@/lib/marketplace-catalog";
 
 export default async function BerandaArtikelPage() {
 
-  const [featured, articles, categories] = await Promise.all([
+  const [featured, searchProducts, articles, categories] = await Promise.all([
 
     listFeaturedProducts(3),
+    listPublishedProducts(),
 
     listPublishedArticles(),
 
-    listBerandaCategories(4),
+    listBerandaCategories(5),
   ]);
 
 
@@ -38,25 +39,28 @@ export default async function BerandaArtikelPage() {
 
       <PwaBanner />
 
-      <IndustrialHeader />
+      <IndustrialHeader showSearch={false} />
 
 
 
       <main className="mx-auto max-w-7xl">
 
-        <section className="relative overflow-hidden bg-metallic-bg px-margin-mobile pb-12 pt-8 md:px-margin-desktop">
+        <section className="relative overflow-visible bg-metallic-bg px-margin-mobile pb-12 pt-8 md:px-margin-desktop">
 
           <div className="relative z-10">
 
             <h2 className="mb-6 max-w-2xl font-headline-lg-mobile text-headline-lg-mobile leading-tight text-primary md:font-headline-lg md:text-headline-lg">
 
-              Temukan Solusi Industri <br className="hidden md:block" />
+              Find the Best Industrial <br className="hidden md:block" />
 
-              Terbaik Anda
+              Solution for Your Business
 
             </h2>
 
-            <ShopSearchForm className="relative z-10 max-w-3xl" />
+            <ShopSearchForm
+              className="relative z-10 max-w-3xl"
+              suggestions={searchProducts}
+            />
 
           </div>
 
@@ -74,7 +78,7 @@ export default async function BerandaArtikelPage() {
 
           <div className="mb-6 flex items-center justify-between">
 
-            <h3 className="font-headline-md text-headline-md text-primary">Kategori Utama</h3>
+            <h3 className="font-headline-md text-headline-md text-primary">Main Categories</h3>
 
             <Link
 
@@ -84,7 +88,7 @@ export default async function BerandaArtikelPage() {
 
             >
 
-              Lihat Semua <Ms name="arrow_forward" className="text-sm" />
+              View All <Ms name="arrow_forward" className="text-sm" />
 
             </Link>
 
@@ -151,23 +155,14 @@ export default async function BerandaArtikelPage() {
 
 
         <section className="px-margin-mobile py-section-gap md:px-margin-desktop">
-
-          <h3 className="mb-8 font-headline-md text-headline-md text-primary">
-
-            Peralatan Terbaru
-
-          </h3>
-
-          <div className="grid grid-cols-1 gap-8 md:grid-cols-3">
-
-            {featured.map((product) => (
-
-              <CatalogCard key={product.id} product={product} />
-
-            ))}
-
+          <div className="mb-8 flex items-center justify-between">
+            <h3 className="font-headline-md text-headline-md text-primary">Latest Collection</h3>
           </div>
-
+          <div className="flex flex-col gap-8">
+            {featured.slice(0, 3).map((product) => (
+              <CatalogCard key={product.id} product={product} />
+            ))}
+          </div>
         </section>
 
 
@@ -184,7 +179,7 @@ export default async function BerandaArtikelPage() {
 
             <span className="flex items-center gap-1 text-body-sm font-semibold text-primary">
 
-              Lihat Semua <Ms name="arrow_forward" className="text-sm" />
+              View All <Ms name="arrow_forward" className="text-sm" />
 
             </span>
 
@@ -262,7 +257,7 @@ export default async function BerandaArtikelPage() {
 
           <div className="relative z-10">
 
-            <h3 className="mb-2 font-headline-md text-headline-md">Butuh Spesifikasi Kustom?</h3>
+            <h3 className="mb-2 font-headline-md text-headline-md">Need Custom Specifications?</h3>
 
             <p className="max-w-lg text-body-md text-on-primary-container opacity-90">
 
@@ -282,7 +277,7 @@ export default async function BerandaArtikelPage() {
 
           >
 
-            Konsultasi Teknis Gratis
+            Free Technical Consultation
 
           </Link>
 

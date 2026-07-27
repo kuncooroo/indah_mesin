@@ -1,11 +1,14 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import { ProfileSettingsHeader } from "@/components/shop/profile/profile-settings-header";
 import { Ms } from "@/components/stitch/ms";
-import { profileOrders, type OrderStatus } from "@/lib/profile-demo-data";
+import {
+  type OrderStatus,
+  type ProfileOrder,
+} from "@/lib/profile-demo-data";
 import { cn } from "@/lib/utils";
 
 type Filter = "all" | OrderStatus;
@@ -41,10 +44,17 @@ function StatusBadge({ status }: { status: OrderStatus }) {
 
 export default function ProfileOrdersPage() {
   const [filter, setFilter] = useState<Filter>("all");
+  const [orders, setOrders] = useState<ProfileOrder[]>([]);
+
+  useEffect(() => {
+    void fetch("/api/profile/orders")
+      .then((response) => (response.ok ? response.json() : { orders: [] }))
+      .then((result) => setOrders(result.orders ?? []));
+  }, []);
 
   const visible = useMemo(
-    () => profileOrders.filter((o) => filter === "all" || o.status === filter),
-    [filter]
+    () => orders.filter((o) => filter === "all" || o.status === filter),
+    [filter, orders]
   );
 
   return (
@@ -66,13 +76,14 @@ export default function ProfileOrdersPage() {
               <div className="rounded-xl bg-surface-container-low p-3">
                 <p className="font-body-sm text-on-surface-variant">Active POs</p>
                 <p className="font-label-technical text-headline-md text-primary">
-                  12{" "}
-                  <span className="font-body-md text-body-sm text-status-ready">↑4</span>
+                  {orders.filter((order) => order.status === "processed").length}
                 </p>
               </div>
               <div className="rounded-xl bg-surface-container-low p-3">
                 <p className="font-body-sm text-on-surface-variant">Pending Value</p>
-                <p className="font-label-technical text-headline-md text-primary">$42.8k</p>
+                <p className="font-label-technical text-headline-md text-primary">
+                  {orders.length > 0 ? orders[0].amount : "Rp 0"}
+                </p>
               </div>
             </div>
           </div>

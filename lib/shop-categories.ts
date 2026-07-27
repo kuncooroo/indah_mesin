@@ -7,6 +7,9 @@ export type ShopCategory = MainCategory;
 const staticIconBySlug = new Map<string, string>(
   MARKETPLACE_CATEGORIES.map((c) => [c.id, c.icon] as const)
 );
+const staticNameBySlug = new Map<string, string>(
+  MARKETPLACE_CATEGORIES.map((c) => [c.id, c.name] as const)
+);
 
 const slugOrder: string[] = MARKETPLACE_CATEGORIES.map((c) => c.id);
 
@@ -17,7 +20,7 @@ function sortByCatalogOrder(rows: ShopCategory[]): ShopCategory[] {
 function mapRow(row: { slug: string; name: string; icon: string | null }): ShopCategory {
   return {
     id: row.slug,
-    name: row.name,
+    name: staticNameBySlug.get(row.slug) ?? row.name,
     icon: row.icon ?? staticIconBySlug.get(row.slug) ?? "category",
   };
 }

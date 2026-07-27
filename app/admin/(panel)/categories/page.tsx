@@ -5,6 +5,7 @@ import { parseAdminListParams, rowNumber } from "@/lib/admin/list-params";
 import {
   adminCategoryListWhere,
   sortCategoriesByCatalogSlug,
+  MARKETPLACE_CATEGORIES,
 } from "@/lib/marketplace-catalog";
 
 import { createCategory, updateCategory, deleteCategory } from "@/lib/admin-crud";
@@ -78,7 +79,7 @@ export default async function AdminCategoriesPage({ searchParams }: PageProps) {
 
       <AdminPageHeader
         title="Kategori"
-        description="Empat kategori resmi toko — sama dengan tab katalog di halaman user."
+        description={`${MARKETPLACE_CATEGORIES.length} kategori resmi toko — ikon & nama sama dengan beranda user.`}
       />
 
       <AdminListShell

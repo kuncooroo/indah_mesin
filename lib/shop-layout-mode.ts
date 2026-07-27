@@ -6,5 +6,8 @@ export function shopCanvasClassName(_pathname?: string) {
 }
 
 export function isPoCheckoutPath(pathname: string) {
-  return pathname === "/po-preview" || pathname.startsWith("/po-preview/");
+  return (
+    pathname === "/po-preview" ||
+    pathname.startsWith("/po-preview/")
+  );
 }

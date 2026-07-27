@@ -2,10 +2,10 @@ import type { MetadataRoute } from "next";
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: "Indah Mesin — Marketplace Industri",
+    name: "Indah Mesin — Industrial Marketplace",
     short_name: "Indah Mesin",
     description:
-      "PWA Marketplace mesin industri B2B — pemesanan via WhatsApp",
+      "B2B industrial machinery marketplace with WhatsApp ordering",
     start_url: "/beranda-artikel",
     display: "standalone",
     orientation: "portrait",

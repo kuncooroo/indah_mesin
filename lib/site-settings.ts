@@ -11,7 +11,7 @@ export type SiteSettingsView = {
   mapImageUrl: string | null;
   hours: {
     weekday: { label: string; value: string };
-    saturday: { label: string; value: string };
+    saturday: { label: string; value: string; closed?: boolean };
     sunday: { label: string; value: string; closed?: boolean };
   };
   headOffice: { title: string; lines: string[] };
@@ -57,16 +57,18 @@ export async function getSiteSettings(): Promise<SiteSettingsView> {
 
     return {
       brandName: row.brandName,
-      phoneDisplay: row.phoneDisplay,
-      phoneTel: row.phoneTel,
-      email: row.email,
-      salesEmail: row.salesEmail,
+      // Kontak publik selalu memakai kanal resmi. Nilai lama di database
+      // tidak boleh mengarahkan calon pelanggan ke nomor/alamat yang usang.
+      phoneDisplay: indahMesinContact.phoneDisplay,
+      phoneTel: indahMesinContact.phoneTel,
+      email: indahMesinContact.email,
+      salesEmail: indahMesinContact.salesEmail,
       showroomHeroImage: row.showroomHeroImage ?? DEFAULT_HERO,
       mapImageUrl: row.mapImageUrl ?? DEFAULT_MAP,
       hours: {
         weekday: {
-          label: row.hoursWeekdayLabel ?? fallback.hours.weekday.label,
-          value: row.hoursWeekdayValue ?? fallback.hours.weekday.value,
+          label: fallback.hours.weekday.label,
+          value: fallback.hours.weekday.value,
         },
         saturday: {
           label: row.hoursSaturdayLabel ?? fallback.hours.saturday.label,
@@ -79,8 +81,8 @@ export async function getSiteSettings(): Promise<SiteSettingsView> {
         },
       },
       headOffice: {
-        title: row.headOfficeTitle ?? fallback.headOffice.title,
-        lines: linesFromJson(row.headOfficeLines, [...fallback.headOffice.lines]),
+        title: fallback.headOffice.title,
+        lines: [...fallback.headOffice.lines],
       },
       showroom: {
         title: row.showroomTitle ?? fallback.showroom.title,

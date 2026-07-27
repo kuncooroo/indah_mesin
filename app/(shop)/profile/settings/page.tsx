@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import { useState } from "react";
+import { ChangeEvent, useEffect, useRef, useState } from "react";
 
 import { ProfileSettingsHeader } from "@/components/shop/profile/profile-settings-header";
 import { Ms } from "@/components/stitch/ms";
@@ -10,11 +10,64 @@ import { cn } from "@/lib/utils";
 
 export default function ProfileSettingsPage() {
   const user = profileDemoUser;
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [name, setName] = useState<string>(user.name);
+  const [email, setEmail] = useState<string>(user.email);
+  const [phone, setPhone] = useState<string>(user.phone.replace(/^\+62\s*/, ""));
+  const [avatar, setAvatar] = useState<string>(user.settingsAvatar);
+  const [currentPassword, setCurrentPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
   const [passwordOpen, setPasswordOpen] = useState(false);
   const [waNotify, setWaNotify] = useState(true);
   const [saved, setSaved] = useState(false);
 
-  function handleSave() {
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    void fetch("/api/profile")
+      .then((response) => (response.ok ? response.json() : null))
+      .then((result) => {
+        if (!result?.user) return;
+        setName(result.user.name);
+        setEmail(result.user.email);
+        setPhone((result.user.phone ?? "").replace(/^\+62\s*/, ""));
+        if (result.user.avatar) setAvatar(result.user.avatar);
+      });
+  }, []);
+
+  function changePhoto(event: ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    if (!file.type.startsWith("image/") || file.size > 2_000_000) {
+      setError("Select an image smaller than 2 MB.");
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = () => setAvatar(String(reader.result));
+    reader.readAsDataURL(file);
+  }
+
+  async function handleSave() {
+    setError("");
+    const response = await fetch("/api/profile", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        name,
+        email,
+        phone: phone ? `+62 ${phone}` : "",
+        avatar,
+        currentPassword: currentPassword || undefined,
+        newPassword: newPassword || undefined,
+      }),
+    });
+    const result = (await response.json()) as { error?: string };
+    if (!response.ok) {
+      setError(result.error ?? "Unable to save account changes.");
+      return;
+    }
+    setCurrentPassword("");
+    setNewPassword("");
     setSaved(true);
     window.setTimeout(() => setSaved(false), 2000);
   }
@@ -29,8 +82,8 @@ export default function ProfileSettingsPage() {
             <div className="group relative">
               <div className="flex h-24 w-24 items-center justify-center overflow-hidden rounded-full bg-surface-container-highest shadow-md">
                 <Image
-                  src={user.settingsAvatar}
-                  alt={user.name}
+                  src={avatar}
+                  alt={name}
                   width={96}
                   height={96}
                   className="h-full w-full object-cover"
@@ -38,14 +91,22 @@ export default function ProfileSettingsPage() {
               </div>
               <button
                 type="button"
+                onClick={() => fileInputRef.current?.click()}
                 className="absolute bottom-0 right-0 flex h-8 w-8 items-center justify-center rounded-full bg-primary text-on-primary shadow-lg transition-transform hover:scale-110"
                 aria-label="Change photo"
               >
                 <Ms name="photo_camera" className="text-[18px]" />
               </button>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*"
+                onChange={changePhoto}
+                className="hidden"
+              />
             </div>
             <div className="mt-4 text-center">
-              <h2 className="font-headline-md text-headline-md text-on-surface">{user.name}</h2>
+              <h2 className="font-headline-md text-headline-md text-on-surface">{name}</h2>
               <p className="font-body-sm text-body-sm text-on-surface-variant">{user.title}</p>
             </div>
           </div>
@@ -66,7 +127,8 @@ export default function ProfileSettingsPage() {
                 <div className="relative">
                   <input
                     type="text"
-                    defaultValue={user.name}
+                    value={name}
+                    onChange={(event) => setName(event.target.value)}
                     className="h-12 w-full rounded-xl bg-surface-container px-4 font-body-md text-on-surface outline-none transition-all focus:ring-2 focus:ring-primary/20"
                     placeholder="Enter your full name"
                   />
@@ -77,26 +139,22 @@ export default function ProfileSettingsPage() {
                 </div>
               </div>
 
-              <div className="space-y-1.5 opacity-80">
+              <div className="space-y-1.5">
                 <label className="ml-1 font-label-technical text-label-technical uppercase text-on-surface-variant">
                   Email Address
                 </label>
                 <div className="relative">
                   <input
                     type="email"
-                    readOnly
-                    value={user.email}
-                    className="h-12 w-full cursor-not-allowed rounded-xl bg-surface-dim/30 px-4 font-body-md text-on-surface-variant outline-none"
+                    value={email}
+                    onChange={(event) => setEmail(event.target.value)}
+                    className="h-12 w-full rounded-xl bg-surface-container px-4 font-body-md text-on-surface outline-none transition-all focus:ring-2 focus:ring-primary/20"
                   />
                   <Ms
-                    name="lock"
+                    name="edit"
                     className="absolute right-4 top-1/2 -translate-y-1/2 text-[20px] text-outline"
-                    fill
                   />
                 </div>
-                <p className="ml-1 text-[11px] font-body-sm italic text-on-surface-variant/60">
-                  Contact IT to change your corporate email.
-                </p>
               </div>
 
               <div className="space-y-1.5">
@@ -109,7 +167,8 @@ export default function ProfileSettingsPage() {
                   </div>
                   <input
                     type="tel"
-                    defaultValue={user.phone}
+                    value={phone}
+                    onChange={(event) => setPhone(event.target.value)}
                     className="h-12 flex-1 rounded-xl bg-surface-container px-4 font-body-md text-on-surface outline-none transition-all focus:ring-2 focus:ring-primary/20"
                     placeholder="8xx xxxx xxxx"
                   />
@@ -147,6 +206,8 @@ export default function ProfileSettingsPage() {
                     </label>
                     <input
                       type="password"
+                      value={currentPassword}
+                      onChange={(event) => setCurrentPassword(event.target.value)}
                       className="h-12 w-full rounded-xl bg-surface-container px-4 font-body-md text-on-surface outline-none"
                       placeholder="••••••••"
                     />
@@ -157,6 +218,8 @@ export default function ProfileSettingsPage() {
                     </label>
                     <input
                       type="password"
+                      value={newPassword}
+                      onChange={(event) => setNewPassword(event.target.value)}
                       className="h-12 w-full rounded-xl bg-surface-container px-4 font-body-md text-on-surface outline-none"
                       placeholder="Min. 8 characters"
                     />
@@ -192,6 +255,11 @@ export default function ProfileSettingsPage() {
             </div>
           </div>
 
+          {error ? (
+            <p className="fixed bottom-20 left-4 right-4 z-50 mx-auto max-w-[398px] rounded-lg bg-error-container p-3 text-center text-body-sm text-on-error-container shadow-lg">
+              {error}
+            </p>
+          ) : null}
           <div className="fixed bottom-0 left-0 z-40 w-full border-t border-border-subtle bg-surface/80 p-4 backdrop-blur-lg">
             <button
               type="button"

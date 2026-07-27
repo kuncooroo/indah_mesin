@@ -1,11 +1,13 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import { ProfileSettingsHeader } from "@/components/shop/profile/profile-settings-header";
 import { Ms } from "@/components/stitch/ms";
-import { indahMesinContact } from "@/lib/contact";
-import { profileDocuments, type DocCategory } from "@/lib/profile-demo-data";
+import {
+  type DocCategory,
+  type ProfileDocument,
+} from "@/lib/profile-demo-data";
 import { cn } from "@/lib/utils";
 
 type Chip = "all" | DocCategory;
@@ -20,15 +22,22 @@ const chips: { id: Chip; label: string }[] = [
 export default function ProfileDocsPage() {
   const [query, setQuery] = useState("");
   const [category, setCategory] = useState<Chip>("all");
+  const [documents, setDocuments] = useState<ProfileDocument[]>([]);
+
+  useEffect(() => {
+    void fetch("/api/profile/documents")
+      .then((response) => (response.ok ? response.json() : { documents: [] }))
+      .then((result) => setDocuments(result.documents ?? []));
+  }, []);
 
   const visible = useMemo(() => {
     const q = query.trim().toLowerCase();
-    return profileDocuments.filter((doc) => {
+    return documents.filter((doc) => {
       const matchCat = category === "all" || doc.category === category;
       const matchQuery = !q || doc.name.toLowerCase().includes(q);
       return matchCat && matchQuery;
     });
-  }, [query, category]);
+  }, [query, category, documents]);
 
   function resetFilters() {
     setQuery("");
@@ -102,13 +111,14 @@ export default function ProfileDocsPage() {
                       </span>
                     </div>
                   </div>
-                  <button
-                    type="button"
+                  <a
+                    href={doc.fileUrl}
+                    download
                     className="ml-2 flex h-10 w-10 items-center justify-center rounded-full text-primary transition-colors hover:bg-primary-container/10"
                     aria-label={`Download ${doc.name}`}
                   >
                     <Ms name="download" />
-                  </button>
+                  </a>
                 </div>
               ))}
             </div>

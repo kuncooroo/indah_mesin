@@ -7,12 +7,15 @@ import { Ms } from "@/components/stitch/ms";
 import type { Product } from "@/lib/products";
 import { buildWhatsAppUrl, trackWhatsAppLead } from "@/lib/whatsapp";
 import { SaveProductButton } from "@/components/shop/saved-products-context";
-import { IndustrialTopBar } from "@/components/shop/industrial-top-bar";
+import { ProductDetailHeader } from "@/components/shop/product-detail-header";
 import { ShopMobileFixedBar } from "@/components/layout/shop-mobile-fixed-bar";
+import { getProductDetailEnrichment } from "@/lib/product-detail-enrichment";
 import { cn } from "@/lib/utils";
-
-const BENEFIT_IMAGE =
-  "https://lh3.googleusercontent.com/aida-public/AB6AXuAL7gusB9X50NsO1Qyj7xDEP3QczUR9T8qPWfO7gPS9xrqyyi5d5mASy6UG-CgbuOMDPSSxikHYVYL2cwkgeh5uIIYfG7UR-kyMLzliLve-aPa5kfCggUOK3ebSHYEbk1pPAY76-NDOgc9uK3tLqOQ5onZmLbGnaiuYqGZ8w4xS1gOcX89vICShQnbVUexbU97o_G5vsIw8JjVu4RDZdot1xOyeG07bdISjrm216vRxa8Mkxu7a6K8CVHSGiD6AsKYijjalYLpPAMif";
+import {
+  DEFAULT_PO_DRAFT,
+  defaultVoltageForProduct,
+  writePoDraft,
+} from "@/lib/po-draft";
 
 function WaIcon({ className }: { className?: string }) {
   return (
@@ -22,16 +25,10 @@ function WaIcon({ className }: { className?: string }) {
   );
 }
 
-function breadcrumbLeaf(product: Product) {
-  if (product.sku === "FDP-RTR-500") return "Sterilizers";
-  const first = product.name.split(" ")[0];
-  return first ?? product.categoryLabel;
-}
-
 function StatusBadge({ product }: { product: Product }) {
   if (product.status === "ready") {
     return (
-      <div className="absolute left-3 top-3 flex items-center gap-1.5 rounded-full bg-status-ready px-3 py-1 text-body-sm font-semibold text-white">
+      <div className="absolute left-4 top-4 flex items-center gap-1 rounded-full bg-status-ready px-3 py-1 text-body-sm font-semibold text-white">
         <span className="h-2 w-2 animate-pulse rounded-full bg-white" />
         Ready Stock
       </div>
@@ -39,234 +36,84 @@ function StatusBadge({ product }: { product: Product }) {
   }
   if (product.status === "indent") {
     return (
-      <div className="absolute left-3 top-3 rounded-full bg-status-indent px-3 py-1 text-body-sm font-semibold text-white">
-        {product.statusLabel ?? "Indent"}
+      <div className="absolute left-4 top-4 rounded-full bg-status-indent px-3 py-1 text-body-sm font-semibold text-white">
+        {product.statusLabel ?? "INDEN"}
       </div>
     );
   }
   return (
-    <div className="absolute left-3 top-3 rounded-full bg-on-surface-variant/90 px-3 py-1 text-body-sm font-semibold text-white">
+    <div className="absolute left-4 top-4 rounded-full bg-on-surface-variant/90 px-3 py-1 text-body-sm font-semibold text-white">
       {product.statusLabel ?? "Contact"}
     </div>
   );
 }
 
-const DEFAULT_DOWNLOADS = [
-  { icon: "picture_as_pdf", title: "Brosur Retort-Sterilizer.pdf", sub: "Download Brochure" },
-  { icon: "description", title: "SOP-Operasional-Retort.pdf", sub: "Technical Manual" },
-];
-
-const RETORT_DEFAULT_FEATURES = [
-  "Double-tank water immersion retort for energy efficiency.",
-  "Automated PLC control for precise temperature ramping.",
-  "High-efficiency heat distribution for canned & pouched food.",
-  "Safety interlock system for high-pressure operations.",
-];
-
-function isRetortProduct(product: Product) {
-  return product.sku === "FDP-RTR-500" || /retort/i.test(product.name);
-}
-
-function ProductFeaturesSection({ features }: { features: string[] }) {
-  if (features.length === 0) return null;
-  return (
-    <div className="space-y-4">
-      <h4 className="flex items-center gap-2 font-bold text-on-surface">
-        <Ms name="featured_play_list" className="text-primary" />
-        Product Features
-      </h4>
-      <ul className="space-y-3">
-        {features.map((feature) => (
-          <li key={feature} className="flex gap-3">
-            <Ms name="check_circle" className="mt-0.5 shrink-0 text-status-ready" />
-            <span className="text-body-md text-on-surface-variant">{feature}</span>
-          </li>
-        ))}
-      </ul>
-    </div>
-  );
-}
-
-function DownloadsSection({ product }: { product: Product }) {
-  let list: NonNullable<Product["downloads"]> = product.downloads?.length
-    ? [...product.downloads]
-    : [];
-
-  if (list.length === 0) {
-    if (product.brochureUrl) {
-      list.push({
-        title: "Product Brochure",
-        subtitle: "Download Brochure",
-        fileUrl: product.brochureUrl,
-        icon: "picture_as_pdf",
-      });
-    }
-    if (product.sopUrl) {
-      list.push({
-        title: "Technical Manual",
-        subtitle: "SOP / Manual",
-        fileUrl: product.sopUrl,
-        icon: "description",
-      });
-    }
-  }
-
-  if (list.length === 0 && isRetortProduct(product)) {
-    list = DEFAULT_DOWNLOADS.map((d) => ({
-      title: d.title,
-      subtitle: d.sub,
-      fileUrl: "#",
-      icon: d.icon,
-    }));
-  }
-
-  if (list.length === 0) return null;
-
-  return (
-    <div className="border-t border-border-subtle pt-4">
-      <h4 className="mb-4 font-bold text-on-surface">Downloads &amp; Resources</h4>
-      <div className="flex flex-col gap-3">
-        {list.map(({ icon, title, subtitle, fileUrl }) => (
-          <a
-            key={title}
-            href={fileUrl}
-            target={fileUrl.startsWith("http") ? "_blank" : undefined}
-            rel={fileUrl.startsWith("http") ? "noopener noreferrer" : undefined}
-            className="flex items-center gap-3 rounded-lg border border-border-subtle p-3 text-left transition-colors active:bg-surface-container-low"
-          >
-            <Ms name={icon ?? "picture_as_pdf"} className="shrink-0 text-primary" />
-            <div className="min-w-0 overflow-hidden">
-              <p className="truncate text-body-sm font-semibold text-on-surface">{title}</p>
-              <p className="text-[12px] text-outline">{subtitle ?? "Download"}</p>
-            </div>
-          </a>
-        ))}
-      </div>
-    </div>
-  );
-}
-
-function RetortMarketingBlock() {
-  return (
-    <section className="mt-section-gap space-y-6">
-      <div className="relative overflow-hidden rounded-2xl">
-        <div className="relative h-64 w-full">
-          <Image
-            src={BENEFIT_IMAGE}
-            alt="After-sales support"
-            fill
-            className="object-cover"
-            sizes="430px"
-          />
-          <div className="absolute inset-0 flex items-end bg-gradient-to-t from-primary/60 to-transparent p-4">
-            <p className="text-sm font-semibold text-white">
-              After-sales support &amp; on-site training included with every unit.
-            </p>
-          </div>
-        </div>
-      </div>
-      <div>
-        <h3 className="mb-4 font-headline-md text-headline-md text-on-surface">
-          Mengapa Memilih IndustrialX Retort?
-        </h3>
-        <p className="mb-5 text-body-md leading-relaxed text-on-surface-variant">
-          Sistem retort kami dirancang khusus untuk memenuhi standar ketat industri pengolahan
-          makanan di Indonesia. Dengan teknologi water immersion, distribusi panas menjadi jauh
-          lebih merata dibandingkan sistem steam konvensional, memastikan sterilisasi produk hingga
-          ke pusat kemasan tanpa merusak tekstur makanan.
-        </p>
-        <div className="grid grid-cols-2 gap-3">
-          <div className="rounded-lg border border-border-subtle bg-surface-container-low p-4">
-            <div className="mb-1 text-xl font-bold text-primary">99.9%</div>
-            <div className="text-body-sm text-outline">Sterilization Efficiency</div>
-          </div>
-          <div className="rounded-lg border border-border-subtle bg-surface-container-low p-4">
-            <div className="mb-1 text-xl font-bold text-primary">30%</div>
-            <div className="text-body-sm text-outline">Energy Savings</div>
-          </div>
-        </div>
-      </div>
-    </section>
-  );
-}
-
-function buildThumbnails(images: string[]) {
-  const pool = images.filter(Boolean);
-  const fallback = pool[0] ?? "";
-  return Array.from({ length: 4 }, (_, i) => pool[i] ?? fallback);
-}
-
 export function ProductDetailView({ product }: { product: Product }) {
-  const images = useMemo(
-    () => (product.gallery?.length ? [product.image, ...product.gallery] : [product.image]),
-    [product.gallery, product.image]
-  );
+  const enrichment = getProductDetailEnrichment(product.sku);
+
+  const images = useMemo(() => {
+    if (enrichment?.gallery.length) return enrichment.gallery;
+    const base = product.gallery?.length ? [product.image, ...product.gallery] : [product.image];
+    return base.filter(Boolean);
+  }, [enrichment, product.gallery, product.image]);
+
   const [activeImage, setActiveImage] = useState(0);
-  const thumbnails = useMemo(() => buildThumbnails(images), [images]);
+  const thumbnails = useMemo(() => {
+    const pool = images.length >= 4 ? images.slice(0, 4) : images;
+    while (pool.length < 4 && images[0]) pool.push(images[0]);
+    return pool.slice(0, 4);
+  }, [images]);
 
-  const specs =
-    product.specs ??
-    [
-      { label: "SKU", value: product.sku },
-      { label: "Kategori", value: product.categoryLabel },
-    ];
-
-  const isRetort = isRetortProduct(product);
-  const features = product.features ?? [];
-  const displayFeatures =
-    features.length > 0 ? features : isRetort ? RETORT_DEFAULT_FEATURES : [];
+  const features = enrichment?.features ?? product.features ?? [];
+  const specs = enrichment?.specs ?? product.specs ?? [{ label: "SKU", value: product.sku }];
+  const downloads = enrichment?.downloads ?? [];
+  const videoThumbIndex = enrichment?.videoThumbIndex;
 
   const displaySrc = images[activeImage] ?? images[0] ?? product.image;
   const poPreviewHref = `/po-preview?product=${encodeURIComponent(product.id)}`;
+  const breadcrumbLeaf = enrichment?.breadcrumbLeaf ?? product.categoryLabel;
 
   return (
     <>
-      <IndustrialTopBar />
+      <ProductDetailHeader />
 
-      <main className="space-y-6 px-margin-mobile py-6 pb-40">
+      <main className="mb-24 space-y-6 px-margin-mobile py-6 pb-40">
         <nav
-          className="flex flex-wrap items-center gap-1 text-body-sm text-on-surface-variant"
+          className="flex flex-wrap items-center gap-2 text-body-sm text-on-surface-variant"
           aria-label="Breadcrumb"
         >
           <span>Equipment List</span>
           <Ms name="chevron_right" className="text-[16px]" />
-          <span>{product.categoryLabel}</span>
+          <span>Food Processing</span>
           <Ms name="chevron_right" className="text-[16px]" />
-          <span className="font-medium text-primary">{breadcrumbLeaf(product)}</span>
+          <span className="font-medium text-primary">{breadcrumbLeaf}</span>
         </nav>
 
         <div className="relative aspect-[4/3] overflow-hidden rounded-xl border border-border-subtle bg-white">
-          <Image
-            src={displaySrc}
-            alt={product.name}
-            fill
-            className="object-cover"
-            sizes="430px"
-            priority
-          />
+          <Image src={displaySrc} alt={product.name} fill className="object-cover" sizes="430px" priority />
           <StatusBadge product={product} />
           <div className="absolute right-3 top-3">
-            <SaveProductButton sku={product.sku} className="h-10 w-10" />
+            <SaveProductButton sku={product.sku} className="h-8 w-8" />
           </div>
         </div>
 
-        <div className="grid grid-cols-4 gap-2">
+        <div className="grid grid-cols-4 gap-4">
           {thumbnails.map((src, i) => {
             const isActive = activeImage === i;
             return (
               <button
-                key={`thumb-${i}`}
+                key={`thumb-${i}-${src}`}
                 type="button"
-                onClick={() => setActiveImage(i < images.length ? i : 0)}
+                onClick={() => setActiveImage(i)}
                 className={cn(
-                  "relative aspect-square overflow-hidden rounded-lg",
-                  isActive ? "border-2 border-primary" : "border border-border-subtle"
+                  "relative aspect-square overflow-hidden rounded-lg transition-colors",
+                  isActive ? "border-2 border-primary" : "border border-border-subtle hover:border-primary"
                 )}
               >
                 <Image src={src} alt="" fill className="object-cover" sizes="80px" />
-                {i === 1 && (
+                {videoThumbIndex === i && (
                   <div className="absolute inset-0 flex items-center justify-center bg-black/20">
-                    <Ms name="play_circle" className="text-3xl text-white" />
+                    <Ms name="play_circle" className="text-4xl text-white" />
                   </div>
                 )}
               </button>
@@ -276,39 +123,73 @@ export function ProductDetailView({ product }: { product: Product }) {
 
         <div>
           <p className="mb-1 font-label-technical font-bold text-primary">#{product.sku}</p>
-          <h1 className="font-headline-lg-mobile text-headline-lg-mobile text-on-surface">
-            {product.name}
-          </h1>
+          <h1 className="font-headline-lg-mobile text-headline-lg-mobile text-on-surface">{product.name}</h1>
         </div>
 
         <div className="rounded-xl bg-surface-container p-4">
-          <p className="text-body-sm text-on-surface-variant">Harga Unit:</p>
+          <p className="text-body-sm text-on-surface-variant">Unit Price:</p>
           <p className="text-2xl font-bold text-primary">{product.priceLabel}</p>
-          {product.priceNote && (
+          {product.priceNote ? (
             <p className="mt-1 text-body-sm italic text-outline">{product.priceNote}</p>
-          )}
+          ) : null}
         </div>
 
-        <ProductFeaturesSection features={displayFeatures} />
-        <DownloadsSection product={product} />
+        {features.length > 0 ? (
+          <div className="space-y-4">
+            <h4 className="flex items-center gap-2 font-bold text-on-surface">
+              <Ms name="featured_play_list" className="text-primary" />
+              Product Features
+            </h4>
+            <ul className="space-y-3">
+              {features.map((feature) => (
+                <li key={feature} className="flex gap-3">
+                  <Ms name="check_circle" className="mt-0.5 shrink-0 text-status-ready" />
+                  <span className="text-body-md text-on-surface-variant">{feature}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        ) : null}
 
-        <section>
-          <h3 className="mb-4 border-l-4 border-primary pl-3 font-headline-md text-headline-md text-on-surface">
+        {downloads.length > 0 ? (
+            <div className="border-t border-border-subtle pt-4" id="downloads">
+              <h4 className="mb-4 font-bold text-on-surface">Downloads &amp; Resources</h4>
+            <div className="grid grid-cols-1 gap-3">
+              {downloads.map(({ icon, title, subtitle }) => (
+                <a
+                  key={title}
+                  href="#"
+                  className="flex items-center gap-3 rounded-lg border border-border-subtle p-3 transition-colors hover:bg-surface-container-low"
+                  onClick={(e) => e.preventDefault()}
+                >
+                  <Ms name={icon} className="shrink-0 text-primary" />
+                  <div className="min-w-0 overflow-hidden">
+                    <p className="truncate text-body-sm font-semibold text-on-surface">{title}</p>
+                    <p className="text-[12px] text-outline">{subtitle}</p>
+                  </div>
+                </a>
+              ))}
+            </div>
+          </div>
+        ) : null}
+
+        <section id="technical-specifications">
+          <h3 className="mb-6 border-l-4 border-primary pl-4 font-headline-md text-headline-md text-on-surface">
             Technical Specifications
           </h3>
           <div className="overflow-hidden rounded-xl border border-border-subtle bg-white shadow-sm">
             <table className="zebra-table w-full text-left">
               <thead>
                 <tr className="bg-primary text-white">
-                  <th className="px-4 py-3 text-sm font-bold">Attribute</th>
-                  <th className="px-4 py-3 text-sm font-bold">Details</th>
+                  <th className="px-6 py-4 font-bold">Attribute</th>
+                  <th className="px-6 py-4 font-bold">Details</th>
                 </tr>
               </thead>
-              <tbody className="font-label-technical text-sm">
+              <tbody className="font-label-technical">
                 {specs.map(({ label, value }) => (
                   <tr key={label}>
-                    <td className="px-4 py-3 font-bold text-on-surface-variant">{label}</td>
-                    <td className="px-4 py-3 text-primary">{value}</td>
+                    <td className="px-6 py-4 font-bold text-on-surface-variant">{label}</td>
+                    <td className="px-6 py-4 text-primary">{value}</td>
                   </tr>
                 ))}
               </tbody>
@@ -316,30 +197,72 @@ export function ProductDetailView({ product }: { product: Product }) {
           </div>
         </section>
 
-        {isRetort && <RetortMarketingBlock />}
+        {enrichment ? (
+          <section className="mt-section-gap space-y-6">
+            <div className="relative overflow-hidden rounded-2xl">
+              <div className="relative h-80 w-full">
+                <Image
+                  src={enrichment.benefitImage}
+                  alt=""
+                  fill
+                  className="object-cover transition-transform duration-500 hover:scale-105"
+                  sizes="430px"
+                />
+                <div className="absolute inset-0 flex items-end bg-gradient-to-t from-primary/60 to-transparent p-6">
+                  <p className="font-semibold text-white">
+                    After-sales support &amp; on-site training included with every unit.
+                  </p>
+                </div>
+              </div>
+            </div>
+            <div>
+              <h3 className="mb-4 font-headline-md text-headline-md text-on-surface">
+                {enrichment.benefitTitle}
+              </h3>
+              <p className="mb-6 leading-relaxed text-on-surface-variant">{enrichment.benefitBody}</p>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="rounded-lg border border-border-subtle bg-surface-container-low p-4">
+                  <div className="mb-1 text-xl font-bold text-primary">{enrichment.statA.value}</div>
+                  <div className="text-body-sm text-outline">{enrichment.statA.label}</div>
+                </div>
+                <div className="rounded-lg border border-border-subtle bg-surface-container-low p-4">
+                  <div className="mb-1 text-xl font-bold text-primary">{enrichment.statB.value}</div>
+                  <div className="text-body-sm text-outline">{enrichment.statB.label}</div>
+                </div>
+              </div>
+            </div>
+          </section>
+        ) : null}
       </main>
 
-      <ShopMobileFixedBar
-        bottomClass="bottom-16"
-        className="sticky-ctwa bg-white/80 p-4 backdrop-blur-md"
-      >
+      <ShopMobileFixedBar bottomClass="bottom-16" className="sticky-ctwa bg-white/80 p-4 backdrop-blur-md">
         <div className="flex gap-3">
           <Link
             href={poPreviewHref}
-            className="flex flex-1 items-center justify-center gap-2 rounded-xl border-2 border-primary py-4 text-sm font-bold text-primary transition-transform active:scale-95"
+            onClick={() =>
+              writePoDraft(
+                {
+                  ...DEFAULT_PO_DRAFT,
+                  voltage: defaultVoltageForProduct(product),
+                  quantity: 1,
+                },
+                product.id
+              )
+            }
+            className="flex flex-1 items-center justify-center gap-2 rounded-xl border-2 border-primary py-4 font-bold text-primary transition-transform active:scale-95"
           >
             <Ms name="description" />
-            Pratinjau PO
+            Preview PO
           </Link>
           <a
             href={buildWhatsAppUrl(product)}
             target="_blank"
             rel="noopener noreferrer"
             onClick={() => trackWhatsAppLead(product.name)}
-            className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-[#25D366] py-4 text-sm font-bold text-white shadow-lg transition-transform active:scale-95"
+            className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-[#25D366] py-4 font-bold text-white shadow-lg transition-transform active:scale-95"
           >
             <WaIcon />
-            Pesan via WA
+            Order via WhatsApp
           </a>
         </div>
       </ShopMobileFixedBar>

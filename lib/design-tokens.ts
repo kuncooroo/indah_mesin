@@ -22,5 +22,5 @@ export const stitchColors = {
   error: "#ba1a1a",
 } as const;
 
-export const WHATSAPP_ADMIN =
-  process.env.NEXT_PUBLIC_WHATSAPP_ADMIN ?? "6281234567890";
+/** Nomor WhatsApp sales resmi dalam format internasional untuk wa.me. */
+export const WHATSAPP_ADMIN = "6281808925555";

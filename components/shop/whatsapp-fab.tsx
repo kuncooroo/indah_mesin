@@ -1,7 +1,7 @@
 "use client";
 
 import { usePathname } from "next/navigation";
-import { WHATSAPP_ADMIN } from "@/lib/design-tokens";
+import { buildWhatsAppUrlFromText } from "@/lib/whatsapp";
 import { indahMesinContact } from "@/lib/contact";
 import { SHOP_MOBILE_WIDTH } from "@/lib/shop-viewport";
 import { cn } from "@/lib/utils";
@@ -19,9 +19,9 @@ export function WhatsAppFab() {
     return null;
   }
 
-  const href = `https://wa.me/${WHATSAPP_ADMIN}?text=${encodeURIComponent(
+  const href = buildWhatsAppUrlFromText(
     `Halo Admin ${indahMesinContact.brandName}, saya ingin konsultasi mesin industri.`
-  )}`;
+  );
 
   return (
     <div className="pointer-events-none fixed inset-x-0 bottom-20 z-[60] flex justify-center">

@@ -16,7 +16,7 @@ export interface Product {
   features?: string[];
   specs?: { label: string; value: string }[];
   savedPriceNote?: string;
-  savedSecondaryAction?: string;
+  savedSecondaryAction?: "brochure" | "spec" | "availability";
   slug?: string;
   /** Prisma product UUID — untuk saved items API */
   dbProductId?: string;

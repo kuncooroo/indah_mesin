@@ -1,6 +1,6 @@
 import type { Product, ProductStatus } from "@/lib/products";
-import { products as catalogFallback, getProductBySku } from "@/lib/products";
-import { MARKETPLACE_PRODUCTS, parseCatalogPriceIdr, shopCatalogProductWhere } from "@/lib/marketplace-catalog";
+import { products as catalogFallback, getProductBySku } from "@/lib/products";import { MARKETPLACE_PRODUCTS, parseCatalogPriceIdr, shopCatalogProductWhere, HOME_FEATURED_SKUS } from "@/lib/marketplace-catalog";
+import { getProductDetailEnrichment } from "@/lib/product-detail-enrichment";
 import { prisma } from "@/lib/prisma";
 import type { Prisma, StockStatus } from "@prisma/client";
 
@@ -50,17 +50,41 @@ function stockLabel(status: StockStatus, indentDays: number | null): string {
 
 function enrichFromCatalogSeed(product: Product): Product {
   const ref = getProductBySku(product.sku) ?? MARKETPLACE_PRODUCTS.find((p) => p.sku === product.sku);
-  if (!ref) return product;
+  const detail = getProductDetailEnrichment(product.sku);
+  if (!ref && !detail) return product;
+
+  const galleryFromDetail = detail?.gallery.slice(1);
+  const gallery =
+    product.gallery && product.gallery.length > 0
+      ? product.gallery
+      : galleryFromDetail?.length
+        ? galleryFromDetail
+        : ref?.gallery;
+
+  const features =
+    product.features && product.features.length > 0
+      ? product.features
+      : detail?.features ?? ref?.features;
+
+  const specs =
+    product.specs && product.specs.length >= 4
+      ? product.specs
+      : detail?.specs ?? ref?.specs;
+
+  const image = product.image || detail?.gallery[0] || ref?.image || product.image;
+
   return {
     ...product,
-    image: product.image || ref.image,
-    gallery: product.gallery?.length ? product.gallery : ref.gallery,
-    features: product.features?.length ? product.features : ref.features,
-    specs: product.specs?.length ? product.specs : ref.specs,
-    priceLabel: product.priceLabel || ref.priceLabel,
-    priceNote: product.priceNote ?? ref.priceNote,
-    statusLabel: product.statusLabel ?? ref.statusLabel,
-    subtitle: product.subtitle || ref.subtitle,
+    image,
+    gallery,
+    features,
+    specs,
+    priceLabel: product.priceLabel || ref?.priceLabel || product.priceLabel,
+    priceNote: product.priceNote ?? ref?.priceNote,
+    statusLabel: product.statusLabel ?? ref?.statusLabel,
+    subtitle: product.subtitle || ref?.subtitle || product.name,
+    savedPriceNote: product.savedPriceNote ?? ref?.savedPriceNote,
+    savedSecondaryAction: product.savedSecondaryAction ?? ref?.savedSecondaryAction,
   };
 }
 
@@ -87,7 +111,7 @@ export function mapDbProduct(row: ProductRow): Product {
     dbProductId: row.id,
     sku: row.sku,
     name: row.name,
-    subtitle: row.priceNote ?? row.name,
+    subtitle: "",
     category: row.category.slug,
     categoryLabel: row.category.name,
     image: primary?.url ?? "",
@@ -138,6 +162,11 @@ export async function listPublishedProducts(): Promise<Product[]> {
 }
 
 export async function listFeaturedProducts(limit = 3): Promise<Product[]> {
+  const all = await listPublishedProducts();
+  const picked = HOME_FEATURED_SKUS.map((sku) => all.find((p) => p.sku === sku)).filter(
+    (p): p is Product => Boolean(p)
+  );
+  if (picked.length >= limit) return picked.slice(0, limit);
   try {
     const rows = await prisma.product.findMany({
       where: shopCatalogProductWhere,
