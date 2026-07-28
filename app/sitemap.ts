@@ -1,6 +1,6 @@
 import type { MetadataRoute } from "next";
-import { listPublishedProducts } from "@/lib/catalog";
-import { MARKETPLACE_CATEGORIES } from "@/lib/marketplace-catalog";
+import { listPublishedProducts } from "@/lib/storefront/catalog";
+import { MARKETPLACE_CATEGORIES } from "@/lib/storefront/catalog-data";
 
 const base = (process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000").replace(/\/$/, "");
 

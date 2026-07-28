@@ -1,140 +1,87 @@
-# ERD — Indah Mesin Marketplace
+# ERD — MesinBagus Marketplace
 
-Struktur database selaras dengan layar Stitch / shop: beranda & artikel, kategori & filter, detail produk, favorit, PO preview, profil, kontak, dan admin.
+Dokumen ini merangkum model yang benar-benar didefinisikan di `prisma/schema.prisma`.
 
-## Diagram (Mermaid)
+## Relasi utama
 
 ```mermaid
 erDiagram
-  User ||--o{ Favorite : saves
-  User ||--o{ PurchaseOrder : creates
+  Company ||--o{ User : employs
+  Company ||--o{ CompanyAddress : has
+  Company ||--o{ Order : owns
+  CompanyAddress ||--o{ Order : shipping_address
+
   Category ||--o{ Product : contains
+  Brand ||--o{ Product : brands
+  Product ||--o{ ProductMedia : has
+  Product ||--o{ ProductFeature : has
   Product ||--o{ ProductDocument : has
-  Product ||--o{ Favorite : bookmarked
-  Product ||--o{ PurchaseOrderItem : quoted
-  PurchaseOrder ||--|{ PurchaseOrderItem : includes
+  Product ||--o{ ProductSpecification : has
+  Product ||--o{ ProductReview : receives
 
-  User {
-    string id PK
-    string username UK
-    string email UK
-    string password
-    enum role
-    string name
-    string avatarUrl
-    string phone
-    string companyName
-    string buyerCode UK
-    boolean verifiedBuyer
-    string language
-    string companyAddress
-  }
+  User ||--o{ SavedItem : saves
+  Product ||--o{ SavedItem : saved_as
+  User ||--o{ CartItem : owns
+  Product ||--o{ CartItem : selected
 
-  Category {
-    string id PK
-    string slug UK
-    string name
-    string icon
-    enum group
-    int sortOrder
-  }
+  User ||--o{ RfqRequest : requests
+  RfqRequest ||--|{ RfqItem : contains
+  Product ||--o{ RfqItem : quoted
 
-  Product {
-    string id PK
-    string sku UK
-    string categoryId FK
-    string categorySlug
-    string categoryLabel
-    string name
-    enum status
-    boolean published
-  }
+  User ||--o{ Order : places
+  Order ||--|{ OrderItem : contains
+  Product ||--o{ OrderItem : ordered
+  Order ||--o{ ArchiveDocument : produces
+  User ||--o{ ArchiveDocument : owns
 
-  ProductDocument {
-    string id PK
-    string productId FK
-    string title
-    string fileUrl
-  }
-
-  Article {
-    string id PK
-    string slug UK
-    string title
-    datetime publishedAt
-    boolean published
-  }
-
-  Favorite {
-    string id PK
-    string userId FK
-    string productId FK
-  }
-
-  PurchaseOrder {
-    string id PK
-    string userId FK
-    enum status
-    string picName
-    string companyName
-  }
-
-  PurchaseOrderItem {
-    string id PK
-    string purchaseOrderId FK
-    string productId FK
-    string sku
-  }
-
-  SiteSetting {
-    string id PK
-    string brandName
-    string phoneDisplay
-    json headOfficeLines
-  }
-
-  QuickFilter {
-    string id PK
-    string label UK
-    int sortOrder
-  }
+  User ||--o{ ActivityLog : creates
 ```
 
-## Pemetaan layar → tabel
+## Pemetaan halaman pengguna
 
-| Layar / fitur | Tabel utama |
-|---------------|-------------|
-| Login / Admin | `User` |
-| Beranda artikel | `Article`, `Category` (group BERANDA), `QuickFilter`, `Product` |
-| Categories & filter | `Category` (MARKETPLACE, FILTER), `Product` |
-| Detail produk | `Product`, `ProductDocument` |
-| Favorites | `Favorite`, `User`, `Product` |
-| PO Preview | `PurchaseOrder`, `PurchaseOrderItem`, `User` |
-| Profile | `User` (profil perusahaan & buyer) |
+| Halaman atau fitur | Model utama |
+|---|---|
+| Login, register, dan profile | `User`, `Company`, `CompanyAddress` |
+| Beranda dan artikel | `Article`, `Category`, `QuickFilter`, `Product` |
+| Categories | `Category`, `Product`, `Brand` |
+| Detail produk | `Product`, `ProductMedia`, `ProductFeature`, `ProductSpecification`, `ProductDocument`, `ProductReview` |
+| Saved products | `SavedItem`, `User`, `Product` |
+| Review/Create PO | `Order`, `OrderItem`, `Company`, `CompanyAddress` |
+| My Orders | `Order`, `OrderItem` |
+| My Docs | `ArchiveDocument` |
 | Contact | `SiteSetting` |
-| Admin dashboard | Semua tabel (statistik & CRUD) |
+| Help Center | `Faq` |
+| Request quotation | `RfqRequest`, `RfqItem` |
 
 ## Enum
 
-- **Role:** `USER`, `ADMIN`, `SUPERADMIN`
-- **ProductStockStatus:** `READY`, `INDENT`, `CONTACT`
-- **CategoryGroup:** `MARKETPLACE`, `FILTER`, `BERANDA`
-- **PurchaseOrderStatus:** `DRAFT`, `SUBMITTED`, `WHATSAPP_SENT`
+- `Role`: `BUYER`, `PURCHASING`, `APPROVER`, `ADMIN`, `SUPERADMIN`
+- `CompanyType`: `BUYER`, `VENDOR`
+- `OrderStatus`: `DRAFT`, `SUBMITTED_VIA_WA`, `NEGOTIATING`, `APPROVED`, `CANCELLED`
+- `ArchiveDocumentType`: `PO_DRAFT`, `OFFICIAL_QUOTATION`, `INVOICE`, `BROCHURE`
+- `VerificationStatus`: `UNVERIFIED`, `PENDING`, `VERIFIED`, `REJECTED`
+- `StockStatus`: `READY_STOCK`, `INDENT`, `OUT_OF_STOCK`
+- `MediaType`: `IMAGE`, `VIDEO`
+- `RfqStatus`: `PENDING`, `PROCESSED`, `QUOTATION_SENT`, `CANCELLED`
 
-## Akses admin
+## Migration dan seeder
 
-- URL: **`http://localhost:3000/admin/login`** → setelah login: **`/admin/dashboard`**
-- Langsung (setelah login): **`http://localhost:3000/admin/dashboard`**
-
-| Username | Password | Role | Akses admin |
-|----------|----------|------|-------------|
-| `user` | `Indah@2026` | USER | Tidak (redirect ke beranda) |
-| `admin` | `Indah@2026` | ADMIN | Dashboard + produk |
-| `superadmin` | `Indah@2026` | SUPERADMIN | Dashboard + produk + kelola user |
-
-## Perintah database
+Migration development:
 
 ```bash
 npx prisma migrate dev
+```
+
+Migration production:
+
+```bash
+npx prisma migrate deploy
+```
+
+Seeder:
+
+```bash
 npx prisma db seed
 ```
+
+Seeder bersifat idempotent dan mengisi akun demo, perusahaan, alamat, kategori, produk, media, fitur, spesifikasi, dokumen produk, artikel, filter, site settings, FAQ, saved products, review, RFQ, order, serta archive document.

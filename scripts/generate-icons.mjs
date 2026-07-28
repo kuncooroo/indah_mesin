@@ -1,5 +1,5 @@
 import sharp from "sharp";
-import { mkdir, writeFile } from "fs/promises";
+import { mkdir } from "fs/promises";
 import { join, dirname } from "path";
 import { fileURLToPath } from "url";
 
@@ -39,7 +39,5 @@ await sharp(Buffer.from(svg))
   .resize(512, 512)
   .png()
   .toFile(join(outDir, "icon-maskable-512.png"));
-
-await writeFile(join(outDir, "icon.svg"), svg.trim());
 
 console.log("PWA icons generated in public/icons/");

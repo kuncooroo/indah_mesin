@@ -52,14 +52,16 @@ export function AdminSidebar({ userName, userEmail, isSuperAdmin }: AdminSidebar
   const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
-    setOpenGroups((prev) => {
-      const next = { ...prev };
-      for (const group of visibleGroups) {
-        if (activeGroupIds.has(group.id)) {
-          next[group.id] = true;
+    queueMicrotask(() => {
+      setOpenGroups((prev) => {
+        const next = { ...prev };
+        for (const group of visibleGroups) {
+          if (activeGroupIds.has(group.id)) {
+            next[group.id] = true;
+          }
         }
-      }
-      return next;
+        return next;
+      });
     });
   }, [activeGroupIds, visibleGroups]);
 

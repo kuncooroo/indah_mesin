@@ -6,7 +6,6 @@ import { getServerSession } from "next-auth";
 import { authOptions, isAdminRole } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import type { Role, RfqStatus, StockStatus, OrderStatus, CompanyType, ArchiveDocumentType } from "@prisma/client";
-import { buyerRoles } from "@/lib/buyer-roles";
 import { Prisma } from "@prisma/client";
 
 async function requireAdmin() {

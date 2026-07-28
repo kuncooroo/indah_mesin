@@ -2,8 +2,8 @@ import type { MetadataRoute } from "next";
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: "Indah Mesin — Industrial Marketplace",
-    short_name: "Indah Mesin",
+    name: "MesinBagus — Industrial Marketplace",
+    short_name: "MesinBagus",
     description:
       "B2B industrial machinery marketplace with WhatsApp ordering",
     start_url: "/beranda-artikel",

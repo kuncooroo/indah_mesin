@@ -14,9 +14,7 @@ const nextConfig: NextConfig = {
   async redirects() {
     return [
       { source: "/login", destination: "/beranda-artikel", permanent: false },
-      { source: "/dashboard", destination: "/beranda-artikel", permanent: false },
-      { source: "/machines", destination: "/categories", permanent: false },
-      { source: "/alarms", destination: "/contact", permanent: false },
+      { source: "/home", destination: "/beranda-artikel", permanent: false },
       { source: "/products/retort-sterilizer", destination: "/products/fdp-rtr-500", permanent: false },
       { source: "/products/vmc-850", destination: "/products/cnc850", permanent: false },
       { source: "/products/alf-5000", destination: "/products/pk-alf5k", permanent: false },

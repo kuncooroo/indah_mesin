@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Eye, Pencil, Trash2 } from "lucide-react";
+import { Eye, Pencil } from "lucide-react";
 
 export function AdminPreviewLink({ href }: { href: string }) {
   return (

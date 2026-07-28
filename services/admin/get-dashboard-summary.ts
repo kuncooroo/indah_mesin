@@ -18,9 +18,9 @@ import {
 
 
 
-import { listPublishedProducts } from "@/lib/catalog";
+import { listPublishedProducts } from "@/lib/storefront/catalog";
 
-import { listPublishedArticles } from "@/lib/content";
+import { listPublishedArticles } from "@/lib/storefront/content";
 
 import { adminModuleRegistry } from "@/services/admin/module-registry";
 
@@ -29,7 +29,7 @@ import type { AdminDashboardInsight, AdminModuleSummary } from "@/types/admin/ma
 import {
   shopCatalogProductWhere,
   shopCatalogCategoryWhere,
-} from "@/lib/marketplace-catalog";
+} from "@/lib/storefront/catalog-data";
 
 import { buyerRoles } from "@/lib/buyer-roles";
 

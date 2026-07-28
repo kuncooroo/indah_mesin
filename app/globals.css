@@ -53,14 +53,14 @@
   --radius-xl: 0.5rem;
   --radius-full: 0.75rem;
 
-  --font-headline-md: var(--font-sans);
-  --font-headline-lg: var(--font-sans);
-  --font-headline-lg-mobile: var(--font-sans);
-  --font-body-md: var(--font-sans);
-  --font-body-sm: var(--font-sans);
-  --font-body-lg: var(--font-sans);
-  --font-button-text: var(--font-sans);
-  --font-label-technical: var(--font-geist-mono);
+  --font-headline-md: var(--font-industrial-sans);
+  --font-headline-lg: var(--font-industrial-sans);
+  --font-headline-lg-mobile: var(--font-industrial-sans);
+  --font-body-md: var(--font-industrial-sans);
+  --font-body-sm: var(--font-industrial-sans);
+  --font-body-lg: var(--font-industrial-sans);
+  --font-button-text: var(--font-industrial-sans);
+  --font-label-technical: var(--font-industrial-mono);
 
   --text-headline-md: 20px;
   --text-headline-md--line-height: 28px;
@@ -88,11 +88,13 @@
   --text-label-technical--font-weight: 500;
   --text-label-technical--letter-spacing: 0.02em;
 
-  --font-sans: var(--font-sans);
-  --font-mono: var(--font-geist-mono);
+  --font-sans: var(--font-industrial-sans);
+  --font-mono: var(--font-industrial-mono);
 }
 
 :root {
+  --font-industrial-sans: "IBM Plex Sans", "Segoe UI", Arial, sans-serif;
+  --font-industrial-mono: "JetBrains Mono", Consolas, monospace;
   --background: #faf8ff;
   --foreground: #1a1b21;
   --primary: #00236f;

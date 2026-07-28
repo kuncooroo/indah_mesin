@@ -60,9 +60,10 @@ export async function updateProductStatus(
 
   status: string,
 
-  _statusLabel: string
+  statusLabel: string
 
 ) {
+  void statusLabel;
 
   await requireAdmin();
 

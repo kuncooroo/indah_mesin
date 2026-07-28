@@ -2,7 +2,22 @@
 
 import Link from "next/link";
 import { useRef, useState } from "react";
-import { Ms } from "@/components/stitch/ms";
+import { MaterialSymbol } from "@/components/ui/material-symbol";
+import { hasPoDraft, readPoDraft } from "@/lib/storefront/po-draft";
+
+export type PoDocumentData = {
+  authenticatedBuyer: boolean;
+  productId: string;
+  productName: string;
+  productSku: string;
+  unitPrice: number;
+  priceLabel: string;
+  buyerName: string;
+  buyerCompany: string;
+  buyerAddress: string;
+  buyerEmail: string;
+  buyerPhone: string;
+};
 
 function escapePdfText(value: string) {
   return value
@@ -79,15 +94,54 @@ function createPdfBlob(sourceText: string) {
 export function PoPdfToolbar({
   backHref,
   iframeSrc,
+  documentData,
 }: {
   backHref: string;
   iframeSrc: string;
+  documentData: PoDocumentData;
 }) {
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const [downloading, setDownloading] = useState(false);
 
   function printDocument() {
     iframeRef.current?.contentWindow?.print();
+  }
+
+  function populateDocument() {
+    const frameDocument = iframeRef.current?.contentDocument;
+    if (!frameDocument) return;
+    const draft = readPoDraft(documentData.productId);
+    const savedDraftExists =
+      hasPoDraft(documentData.productId) && !documentData.authenticatedBuyer;
+    const quantity = Math.max(1, draft.quantity || 1);
+    const formattedTotal = documentData.unitPrice
+      ? new Intl.NumberFormat("id-ID", {
+          style: "currency",
+          currency: "IDR",
+          maximumFractionDigits: 0,
+        }).format(documentData.unitPrice * quantity)
+      : documentData.priceLabel;
+    const values: Record<string, string> = {
+      "po-buyer-company": savedDraftExists ? draft.companyName : documentData.buyerCompany,
+      "po-buyer-name": `Attn: ${savedDraftExists ? draft.picName : documentData.buyerName}`,
+      "po-buyer-address": savedDraftExists ? draft.address : documentData.buyerAddress,
+      "po-buyer-email": documentData.buyerEmail,
+      "po-buyer-phone": savedDraftExists ? draft.phone : documentData.buyerPhone,
+      "po-product-sku": documentData.productSku,
+      "po-product-name": documentData.productName,
+      "po-product-variant": `Voltage: ${draft.voltage}`,
+      "po-product-quantity": `${quantity} Unit${quantity > 1 ? "s" : ""}`,
+      "po-product-price": documentData.priceLabel,
+      "po-product-total": formattedTotal,
+      "po-subtotal": formattedTotal,
+      "po-grand-total": formattedTotal,
+      "po-signature-name": savedDraftExists ? draft.picName : documentData.buyerName,
+      "po-signature-company": savedDraftExists ? draft.companyName : documentData.buyerCompany,
+    };
+    Object.entries(values).forEach(([id, value]) => {
+      const element = frameDocument.getElementById(id);
+      if (element) element.textContent = value;
+    });
   }
 
   function downloadDocument() {
@@ -97,7 +151,7 @@ export function PoPdfToolbar({
     const url = URL.createObjectURL(createPdfBlob(documentText));
     const anchor = document.createElement("a");
     anchor.href = url;
-    anchor.download = `IndustrialX-Purchase-Order-${new Date().toISOString().slice(0, 10)}.pdf`;
+    anchor.download = `MesinBagus-Purchase-Order-${new Date().toISOString().slice(0, 10)}.pdf`;
     anchor.click();
     window.setTimeout(() => {
       URL.revokeObjectURL(url);
@@ -114,7 +168,7 @@ export function PoPdfToolbar({
             className="rounded-full p-2 transition-colors hover:bg-surface-container active:opacity-80"
             aria-label="Back to PO review"
           >
-            <Ms name="arrow_back" className="text-primary" />
+            <MaterialSymbol name="arrow_back" className="text-primary" />
           </Link>
           <h1 className="truncate text-sm font-bold text-primary sm:text-base">
             Purchase Order (A4)
@@ -126,7 +180,7 @@ export function PoPdfToolbar({
             onClick={printDocument}
             className="flex items-center gap-1 rounded-full border border-primary px-3 py-1.5 text-xs font-semibold text-primary active:bg-primary/5"
           >
-            <Ms name="print" className="text-base" />
+            <MaterialSymbol name="print" className="text-base" />
             Print
           </button>
           <button
@@ -136,13 +190,14 @@ export function PoPdfToolbar({
             className="flex items-center gap-1 rounded-full bg-primary px-3 py-1.5 text-xs font-semibold text-white active:opacity-80"
             title="Download Purchase Order as PDF"
           >
-            <Ms name="download" className="text-base" />
+            <MaterialSymbol name="download" className="text-base" />
             {downloading ? "Preparing…" : "Download"}
           </button>
         </div>
       </header>
       <iframe
         ref={iframeRef}
+        onLoad={populateDocument}
         title="Purchase Order Preview"
         src={iframeSrc}
         className="min-h-0 w-full flex-1 border-0 bg-white"

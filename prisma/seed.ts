@@ -1,11 +1,11 @@
 import "dotenv/config";
 import bcrypt from "bcrypt";
 import { PrismaMariaDb } from "@prisma/adapter-mariadb";
-import { PrismaClient, Role, StockStatus, RfqStatus, VerificationStatus, CompanyType, OrderStatus, ArchiveDocumentType } from "@prisma/client";
-import { MARKETPLACE_CATEGORIES, MARKETPLACE_PRODUCTS, MARKETPLACE_SKUS, MARKETPLACE_QUICK_FILTERS, catalogProductToSeedStatus, parseCatalogPriceIdr } from "../lib/marketplace-catalog";
-import { stitchArticles } from "../lib/stitch-screens";
-import { indahMesinContact } from "../lib/contact";
-import { getProductDetailEnrichment } from "../lib/product-detail-enrichment";
+import { PrismaClient, Role, RfqStatus, VerificationStatus, CompanyType, OrderStatus, ArchiveDocumentType } from "@prisma/client";
+import { MARKETPLACE_CATEGORIES, MARKETPLACE_PRODUCTS, MARKETPLACE_SKUS, MARKETPLACE_QUICK_FILTERS, catalogProductToSeedStatus, parseCatalogPriceIdr } from "../lib/storefront/catalog-data";
+import { stitchArticles } from "../lib/storefront/content-data";
+import { indahMesinContact } from "../lib/storefront/contact";
+import { getProductDetailEnrichment } from "../lib/storefront/product-detail-enrichment";
 
 const url = process.env.DATABASE_URL;
 if (!url) {
@@ -16,6 +16,24 @@ const adapter = new PrismaMariaDb(url);
 const prisma = new PrismaClient({ adapter });
 
 const DEFAULT_PASSWORD = "Indah@2026";
+
+const USER_FAQS = [
+  {
+    question: "What is the standard lead time for indent orders?",
+    answer:
+      "Standard indent orders typically take between 4–8 weeks depending on machine complexity and customs clearance. Our logistics team provides regular progress updates.",
+  },
+  {
+    question: "Do you offer on-site installation?",
+    answer:
+      "Yes. Our technical team provides on-site installation and operator training for heavy machinery purchases across supported industrial areas.",
+  },
+  {
+    question: "Can I request a customized technical manual?",
+    answer:
+      "Yes. A manual tailored to your plant configuration can be requested through your account manager.",
+  },
+] as const;
 
 function slugify(title: string) {
   return title
@@ -322,6 +340,22 @@ async function main() {
     },
   });
 
+  for (const [sortOrder, faq] of USER_FAQS.entries()) {
+    const existingFaq = await prisma.faq.findFirst({
+      where: { question: faq.question },
+    });
+    if (existingFaq) {
+      await prisma.faq.update({
+        where: { id: existingFaq.id },
+        data: { answer: faq.answer, sortOrder, published: true },
+      });
+    } else {
+      await prisma.faq.create({
+        data: { ...faq, sortOrder, published: true },
+      });
+    }
+  }
+
   const defaultSavedSkus = ["FDP-RTR-500", "IMS-STEAM-200", "IMS-CAN-80"] as const;
   for (const sku of defaultSavedSkus) {
     const product = await prisma.product.findUnique({ where: { sku } });
@@ -337,6 +371,44 @@ async function main() {
 
   const poProduct = await prisma.product.findUnique({ where: { sku: "FDP-RTR-500" } });
   if (poProduct) {
+    const productReviews = [
+      {
+        authorName: "PT. Pangan Makmur Abadi",
+        rating: 5,
+        content:
+          "Reliable machine performance, clear technical documentation, and responsive installation support.",
+      },
+      {
+        authorName: "Global Food Processing Ltd.",
+        rating: 5,
+        content:
+          "The quotation process was straightforward and the technical team answered our production-line questions clearly.",
+      },
+    ] as const;
+
+    for (const review of productReviews) {
+      const existingReview = await prisma.productReview.findFirst({
+        where: {
+          productId: poProduct.id,
+          authorName: review.authorName,
+        },
+      });
+      if (existingReview) {
+        await prisma.productReview.update({
+          where: { id: existingReview.id },
+          data: { ...review, published: true },
+        });
+      } else {
+        await prisma.productReview.create({
+          data: {
+            ...review,
+            productId: poProduct.id,
+            published: true,
+          },
+        });
+      }
+    }
+
     const rfqNumber = "RFQ-202607-0001";
     const existing = await prisma.rfqRequest.findUnique({ where: { rfqNumber } });
     if (!existing) {
@@ -394,7 +466,7 @@ async function main() {
           orderId: order.id,
           documentName: `Draf PO Batch #${orderNumber}.pdf`,
           documentType: ArchiveDocumentType.PO_DRAFT,
-          fileUrl: "/stitch/po-a4.html",
+          fileUrl: "/documents/po-template.html",
         },
       });
     }

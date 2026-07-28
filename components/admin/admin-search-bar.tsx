@@ -21,7 +21,7 @@ export function AdminSearchBar({
   const [value, setValue] = useState(defaultQuery);
 
   useEffect(() => {
-    setValue(defaultQuery);
+    queueMicrotask(() => setValue(defaultQuery));
   }, [defaultQuery]);
 
   useEffect(() => {
