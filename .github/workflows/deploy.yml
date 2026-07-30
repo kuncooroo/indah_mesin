@@ -1,0 +1,43 @@
+name: Deploy to VPS
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Deploy to VPS
+        uses: appleboy/ssh-action@v1.2.2
+        with:
+          host: ${{ secrets.HOST }}
+          username: ${{ secrets.USERNAME }}
+          key: ${{ secrets.SSH_KEY }}
+          port: ${{ secrets.PORT }}
+          script: |
+            set -e
+
+            cd /var/www/indah-mesin-PWA
+
+            echo "Pull latest code..."
+            git pull origin main
+
+            echo "Install dependencies..."
+            npm install
+
+            echo "Generate Prisma Client..."
+            npx prisma generate
+
+            echo "Build Next.js..."
+            npm run build
+
+            echo "Restart PM2..."
+            pm2 restart indah-mesin-pwa --update-env
+
+            echo "Save PM2 process..."
+            pm2 save
+
+            echo "Deployment completed successfully!"
