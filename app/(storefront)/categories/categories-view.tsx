@@ -27,7 +27,7 @@ function parseSort(raw: string | null): CatalogSort {
 
 const ALL_CATEGORY = { id: "all", name: "All", icon: "apps" as const };
 
-function defaultFilters(searchParams: URLSearchParams): CatalogFilterState {
+function defaultFilters(searchParams: URLSearchParams, category = "all"): CatalogFilterState {
   const quick = searchParams.get("filter");
   const quickPatch = quickFilterToState(quick);
   return {
@@ -37,7 +37,7 @@ function defaultFilters(searchParams: URLSearchParams): CatalogFilterState {
     indent: quickPatch.indent ?? true,
     minPrice: quickPatch.minPrice ?? 0,
     sort: quickPatch.sort ?? parseSort(searchParams.get("sort")),
-    brand: "all",
+    brand: category,
   };
 }
 
@@ -61,15 +61,19 @@ export function CategoriesView({
     initialCat && tabs.some((c) => c.id === initialCat) ? initialCat : "all";
 
   const [activeCat, setActiveCat] = useState(defaultCat);
-  const [applied, setApplied] = useState<CatalogFilterState>(() => defaultFilters(searchParams));
-  const [draft, setDraft] = useState<CatalogFilterState>(() => defaultFilters(searchParams));
+  const [applied, setApplied] = useState<CatalogFilterState>(() =>
+    defaultFilters(searchParams, defaultCat)
+  );
+  const [draft, setDraft] = useState<CatalogFilterState>(() =>
+    defaultFilters(searchParams, defaultCat)
+  );
   const [page, setPage] = useState(1);
   const [filtersOpen, setFiltersOpen] = useState(false);
 
   useEffect(() => {
     queueMicrotask(() => {
       setActiveCat(defaultCat);
-      const next = defaultFilters(searchParams);
+      const next = defaultFilters(searchParams, defaultCat);
       setApplied(next);
       setDraft(next);
       setPage(1);
@@ -101,10 +105,12 @@ export function CategoriesView({
   const safePage = Math.min(page, totalPages);
   const pageItems = filtered.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE);
 
+  const activeCategoryId =
+    applied.brand !== "all" ? applied.brand : activeCat === "all" ? "all" : activeCat;
   const activeCategoryName =
-    activeCat === "all"
-      ? "Catalog"
-      : tabs.find((c) => c.id === activeCat)?.name ?? "Category";
+    activeCategoryId === "all"
+      ? "Machines"
+      : tabs.find((c) => c.id === activeCategoryId)?.name ?? "Machines";
 
   function syncUrl(cat: string) {
     const params = new URLSearchParams(searchParams.toString());
@@ -116,6 +122,10 @@ export function CategoriesView({
 
   function applyFilters() {
     setApplied({ ...draft, q: applied.q, sort: applied.sort });
+    if (draft.brand !== activeCat) {
+      setActiveCat(draft.brand);
+      syncUrl(draft.brand);
+    }
     setPage(1);
   }
 
@@ -141,6 +151,8 @@ export function CategoriesView({
                   type="button"
                   onClick={() => {
                     setActiveCat(id);
+                    setApplied((current) => ({ ...current, brand: id }));
+                    setDraft((current) => ({ ...current, brand: id }));
                     syncUrl(id);
                     setPage(1);
                   }}
@@ -173,7 +185,7 @@ export function CategoriesView({
           <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <p className="text-body-sm text-on-surface-variant">
               <span className="font-bold text-primary">{filtered.length}</span>{" "}
-              {activeCategoryName} Machines Found
+              {activeCategoryName} Found
             </p>
             <div className="flex items-center gap-1">
               <span className="text-body-sm text-on-surface-variant">Sort:</span>

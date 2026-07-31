@@ -3,7 +3,6 @@
 import { StorefrontBottomNav } from "@/components/storefront/layout/bottom-nav";
 import { SavedProductsProvider } from "@/components/storefront/saved-products-context";
 import { ShopNavDrawerProvider } from "@/components/storefront/shop-nav-drawer";
-import { WhatsAppFab } from "@/components/storefront/whatsapp-fab";
 import { shopCanvasClassName } from "@/lib/storefront/layout-mode";
 import { cn } from "@/lib/utils";
 
@@ -21,7 +20,6 @@ export function StorefrontShell({ children }: { children: React.ReactNode }) {
         <ShopNavDrawerProvider>
           <SavedProductsProvider>{children}</SavedProductsProvider>
         </ShopNavDrawerProvider>
-        <WhatsAppFab />
         <StorefrontBottomNav />
       </div>
     </div>
