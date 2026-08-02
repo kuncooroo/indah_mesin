@@ -22,7 +22,7 @@ export default withAuth(
       }
     }
 
-    if (path.startsWith("/profile/") && !req.nextauth.token) {
+    if (path.startsWith("/profile/") && path !== "/profile/privacy" && !req.nextauth.token) {
       return NextResponse.redirect(new URL("/profile", req.url));
     }
 

@@ -3,6 +3,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
+import { signOut, useSession } from "next-auth/react";
 import {
   createContext,
   useCallback,
@@ -12,7 +13,6 @@ import {
   useState,
 } from "react";
 import { MaterialSymbol } from "@/components/ui/material-symbol";
-import { shopNavUser } from "@/lib/storefront/profile-demo-data";
 import { cn } from "@/lib/utils";
 
 type NavItem = {
@@ -134,16 +134,18 @@ function DrawerLogoutButton({ onDone }: { onDone: () => void }) {
   const router = useRouter();
   const [busy, setBusy] = useState(false);
 
-  function handleLogout() {
+  async function handleLogout() {
     if (busy) return;
     if (!window.confirm("Sign out of MesinBagus?")) return;
     setBusy(true);
-    window.setTimeout(() => {
+    try {
+      await signOut({ redirect: false });
       onDone();
-      router.push("/beranda-artikel");
+      router.replace("/profile");
       router.refresh();
+    } finally {
       setBusy(false);
-    }, 400);
+    }
   }
 
   return (
@@ -162,6 +164,16 @@ function DrawerLogoutButton({ onDone }: { onDone: () => void }) {
 function ShopNavDrawerPanel() {
   const { open, closeDrawer } = useShopNavDrawer();
   const pathname = usePathname();
+  const { data: session, status } = useSession();
+  const user = session?.user;
+  const displayName = user?.name || "Pengunjung";
+  const initials = displayName
+    .split(/\s+/)
+    .slice(0, 2)
+    .map((part) => part[0])
+    .join("")
+    .toUpperCase();
+  const memberId = user?.username || user?.id?.slice(0, 8).toUpperCase();
 
   return (
     <div className="pointer-events-none fixed inset-0 z-[60] mx-auto h-dvh w-full max-w-[430px] overflow-hidden">
@@ -193,19 +205,29 @@ function ShopNavDrawerPanel() {
             <MaterialSymbol name="close" className="text-[28px]" />
           </button>
           <div className="relative shrink-0">
-            <Image
-              src={shopNavUser.avatar}
-              alt={shopNavUser.name}
-              width={64}
-              height={64}
-              className="h-16 w-16 rounded-full border-2 border-on-primary/20 object-cover"
-            />
-            <div className="absolute bottom-0 right-0 h-4 w-4 rounded-full border-2 border-primary bg-status-ready" />
+            <div className="flex h-16 w-16 items-center justify-center overflow-hidden rounded-full border-2 border-on-primary/20 bg-primary-fixed font-headline-md text-primary">
+              {user?.image ? (
+                <Image
+                  src={user.image}
+                  alt={displayName}
+                  width={64}
+                  height={64}
+                  className="h-full w-full object-cover"
+                />
+              ) : (
+                <span aria-hidden="true">{initials}</span>
+              )}
+            </div>
+            {status === "authenticated" ? (
+              <div className="absolute bottom-0 right-0 h-4 w-4 rounded-full border-2 border-primary bg-status-ready" />
+            ) : null}
           </div>
           <div className="flex min-w-0 flex-col">
-            <h2 className="truncate font-headline-md text-headline-md">{shopNavUser.name}</h2>
+            <h2 className="truncate font-headline-md text-headline-md">
+              {status === "loading" ? "Memuat akun…" : displayName}
+            </h2>
             <p className="font-label-technical text-label-technical uppercase tracking-wider opacity-80">
-              ID: {shopNavUser.memberId}
+              {memberId ? `ID: ${memberId}` : "Masuk untuk melihat akun"}
             </p>
           </div>
         </div>
@@ -235,7 +257,18 @@ function ShopNavDrawerPanel() {
         </div>
 
         <div className="bg-surface-container-low p-4">
-          <DrawerLogoutButton onDone={closeDrawer} />
+          {status === "authenticated" ? (
+            <DrawerLogoutButton onDone={closeDrawer} />
+          ) : (
+            <Link
+              href="/profile"
+              onClick={closeDrawer}
+              className="flex w-full items-center justify-center gap-3 rounded-full bg-primary p-component-padding font-button-text text-button-text text-on-primary transition-all active:scale-[0.98]"
+            >
+              <MaterialSymbol name="login" />
+              Login / Register
+            </Link>
+          )}
           <p className="mt-3 text-center font-label-technical text-[10px] uppercase tracking-widest text-outline">
             MesinBagus v2.4.0
           </p>

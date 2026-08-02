@@ -1,14 +1,12 @@
 "use client";
 
-import Image from "next/image";
 import { useEffect } from "react";
 
 import { ProfileSettingsHeader } from "@/components/storefront/profile/profile-settings-header";
 import { MaterialSymbol } from "@/components/ui/material-symbol";
-import { indahMesinContact } from "@/lib/storefront/contact";
 import { cn } from "@/lib/utils";
 
-const sections = ["collection", "usage", "security", "rights"] as const;
+const sections = ["collection", "usage", "security"] as const;
 
 export default function ProfilePrivacyPage() {
   useEffect(() => {
@@ -48,15 +46,15 @@ export default function ProfilePrivacyPage() {
 
   return (
     <>
-      <ProfileSettingsHeader backHref="/profile" />
+      <ProfileSettingsHeader backHref="/profile" title="Privacy Policy" />
       <main className="min-h-screen bg-background pt-16">
         <div className="flex w-full flex-col">
-          <section className="bg-surface-container-low px-margin-mobile py-8">
+          <section className="px-margin-mobile py-8">
             <div className="flex flex-col gap-2">
               <div className="flex items-center gap-3 text-primary">
                 <MaterialSymbol name="verified_user" className="text-[24px]" />
                 <span className="font-label-technical text-label-technical uppercase tracking-wider">
-                  Privacy Center
+                  Privacy Policy
                 </span>
               </div>
               <h2 className="font-headline-lg-mobile text-headline-lg-mobile text-on-surface">
@@ -78,7 +76,6 @@ export default function ProfilePrivacyPage() {
               { href: "#collection", label: "Collection" },
               { href: "#usage", label: "Usage" },
               { href: "#security", label: "Security" },
-              { href: "#rights", label: "Your Rights" },
             ].map(({ href, label }) => (
               <a
                 key={href}
@@ -100,11 +97,11 @@ export default function ProfilePrivacyPage() {
             ))}
           </nav>
 
-          <div className="flex flex-col gap-section-gap px-margin-mobile pb-24">
+          <div className="flex flex-col gap-section-gap px-margin-mobile">
             <section className="scroll-mt-32 flex flex-col gap-4" id="collection">
               <div className="flex items-center gap-3">
-                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/5">
-                  <MaterialSymbol name="database" className="text-primary" />
+                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary-container">
+                  <MaterialSymbol name="database" className="text-on-primary-container" />
                 </div>
                 <h3 className="font-headline-md text-headline-md text-on-surface">Data Collection</h3>
               </div>
@@ -141,8 +138,8 @@ export default function ProfilePrivacyPage() {
 
             <section className="scroll-mt-32 flex flex-col gap-4" id="usage">
               <div className="flex items-center gap-3">
-                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-secondary/5">
-                  <MaterialSymbol name="insights" className="text-secondary" />
+                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10">
+                  <MaterialSymbol name="insights" className="text-primary" />
                 </div>
                 <h3 className="font-headline-md text-headline-md text-on-surface">
                   Information Usage
@@ -172,14 +169,14 @@ export default function ProfilePrivacyPage() {
 
             <section className="scroll-mt-32 flex flex-col gap-4" id="security">
               <div className="flex items-center gap-3">
-                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-error/5">
-                  <MaterialSymbol name="encrypted" className="text-error" />
+                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10">
+                  <MaterialSymbol name="encrypted" className="text-primary" />
                 </div>
                 <h3 className="font-headline-md text-headline-md text-on-surface">
                   Security Protocols
                 </h3>
               </div>
-              <div className="relative overflow-hidden rounded-2xl bg-inverse-surface p-6 text-inverse-on-surface">
+              <div className="relative overflow-hidden rounded-2xl bg-primary-container p-6 text-on-primary-container">
                 <div className="relative z-10 flex flex-col gap-4">
                   <p className="font-body-md opacity-90">
                     We employ enterprise-grade encryption (AES-256) for all data at rest. Our
@@ -213,38 +210,7 @@ export default function ProfilePrivacyPage() {
               </div>
             </section>
 
-            <section className="flex flex-col gap-6 pt-4 scroll-mt-32" id="rights">
-              <div className="flex flex-col items-center gap-4 rounded-2xl bg-surface-container-high p-6 text-center">
-                <div className="flex h-16 w-16 items-center justify-center rounded-full bg-white shadow-sm">
-                  <MaterialSymbol name="contact_mail" className="text-[32px] text-primary" />
-                </div>
-                <div className="flex flex-col gap-2">
-                  <h4 className="font-headline-md text-headline-md text-on-surface">
-                    Contact our DPO
-                  </h4>
-                  <p className="px-4 font-body-sm text-body-sm text-on-surface-variant">
-                    Questions about your data? Our Data Protection Officer is ready to assist with
-                    export requests or deletion.
-                  </p>
-                </div>
-                <a
-                  href={`mailto:${indahMesinContact.email}`}
-                  className="flex w-full items-center justify-center gap-3 rounded-xl bg-primary py-4 font-button-text text-button-text text-on-primary transition-transform active:scale-[0.98]"
-                >
-                  <MaterialSymbol name="alternate_email" className="text-[20px]" />
-                  Contact Data Protection Officer
-                </a>
-              </div>
-            </section>
-
-            <footer className="flex flex-col items-center gap-4 border-t border-outline-variant py-8">
-              <Image
-                src="https://lh3.googleusercontent.com/aida-public/AB6AXuCWysSn-NeelGwMe4dgvl8drzOcaq7Wu2Jb9UgcllwtuPS_3QyfDuWDj5X0ntc-YvtQMakRqcYKuiMnMMwWuaXBq0vm9WayyBCql7x_L-46TmmzK0lbYUUpFX-ewebMRdLHogfjexjTLBy2gw8OWXA7-BJcRm8YeUcbzmZBUY9AqCxIbVQOfbOoxUxodoVVjTnym5Jx-m4LMBC7cuM9V3cWvazPPf_0dIcJIFKzHgWbbcNjL_9GhOv2aTke2VmVSvvCWaDmNm60ZF45"
-                alt=""
-                width={120}
-                height={32}
-                className="h-8 w-auto opacity-40 grayscale"
-              />
+            <footer className="flex flex-col items-center border-t border-outline-variant pb-0 pt-4">
               <p className="text-center font-label-technical text-[11px] uppercase tracking-[0.2em] text-outline">
                 Standard Industrial Privacy Framework v4.2
               </p>

@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { getProviders, signIn } from "next-auth/react";
 import { FormEvent, useEffect, useState } from "react";
 import { MaterialSymbol } from "@/components/ui/material-symbol";
@@ -10,6 +11,8 @@ export function ProfileAuthPanel() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [googleEnabled, setGoogleEnabled] = useState<boolean | null>(null);
+  const [passwordVisible, setPasswordVisible] = useState(false);
+  const [confirmVisible, setConfirmVisible] = useState(false);
 
   useEffect(() => {
     void getProviders().then((providers) => {
@@ -22,148 +25,386 @@ export function ProfileAuthPanel() {
     setBusy(true);
     setError("");
     const form = new FormData(event.currentTarget);
-    const email = String(form.get("email") ?? "");
+    const identifier = String(form.get(mode === "login" ? "identifier" : "email") ?? "").trim();
     const password = String(form.get("password") ?? "");
+    const destination = mode === "register" ? "/profile/settings" : "/profile";
 
     if (mode === "register") {
+      const confirmPassword = String(form.get("confirmPassword") ?? "");
+      if (password !== confirmPassword) {
+        setError("Konfirmasi kata sandi tidak cocok.");
+        setBusy(false);
+        return;
+      }
+      if (form.get("terms") !== "on") {
+        setError("Anda harus menyetujui Syarat & Ketentuan dan Kebijakan Privasi.");
+        setBusy(false);
+        return;
+      }
       const response = await fetch("/api/auth/register", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: form.get("name"), email, password }),
+        body: JSON.stringify({
+          name: form.get("name"),
+          companyName: form.get("companyName"),
+          email: identifier,
+          password,
+        }),
       });
       const result = (await response.json()) as { error?: string };
       if (!response.ok) {
-        setError(result.error ?? "Registration failed.");
+        setError(result.error ?? "Pendaftaran gagal.");
         setBusy(false);
         return;
       }
     }
 
     const result = await signIn("credentials", {
-      username: email,
+      username: identifier,
       password,
       redirect: false,
-      callbackUrl: "/profile",
+      callbackUrl: destination,
     });
     if (result?.ok) {
-      window.location.assign("/profile");
+      window.location.assign(destination);
       return;
     }
-    setError("Invalid email or password.");
+    setError("Email, nomor telepon, atau kata sandi tidak valid.");
     setBusy(false);
   }
 
   return (
-    <main className="min-h-screen bg-background px-margin-mobile pb-24 pt-10">
-      <div className="mx-auto flex max-w-md flex-col">
-        <div className="mb-8 text-center">
-          <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-xl bg-white shadow-sm">
-            <MaterialSymbol name="precision_manufacturing" className="text-[48px] text-primary" />
+    <main className="min-h-screen bg-background pb-24 pt-16">
+      <div className="mx-auto flex w-full max-w-md flex-col px-margin-mobile">
+        <div className="flex flex-col items-center justify-center py-section-gap">
+          <div className="group relative">
+            <div className="absolute -inset-1 rounded-xl bg-gradient-to-r from-primary to-primary-container opacity-25 blur transition duration-1000 group-hover:opacity-50 group-hover:duration-200" />
+            <div className="relative flex h-20 w-20 items-center justify-center rounded-xl bg-surface-container-lowest shadow-sm">
+              <MaterialSymbol
+                name="precision_manufacturing"
+                className="text-[48px] font-bold text-primary"
+              />
+            </div>
           </div>
-          <h1 className="mt-4 font-headline-lg-mobile text-headline-lg-mobile text-primary">
-            MesinBagus
-          </h1>
-          <p className="text-body-sm text-on-surface-variant">Industrial Procurement Excellence</p>
+          <div className="mt-4 text-center">
+            <h1 className="font-headline-lg-mobile text-headline-lg-mobile tracking-tighter text-primary">
+              MesinBagus
+            </h1>
+            <p className="mt-1 font-body-sm text-body-sm text-on-surface-variant">
+              Industrial Procurement Excellence
+            </p>
+          </div>
         </div>
 
-        <section className="rounded-xl bg-surface-container-low p-4 shadow-sm">
+        <section className="w-full rounded-xl bg-surface-container-low p-component-padding shadow-sm">
           <div className="mb-6 flex rounded-lg bg-surface-container-highest p-1">
-            {(["login", "register"] as const).map((tab) => (
+            {(
+              [
+                { id: "login", label: "Masuk" },
+                { id: "register", label: "Daftar" },
+              ] as const
+            ).map((tab) => (
               <button
-                key={tab}
+                key={tab.id}
                 type="button"
                 onClick={() => {
-                  setMode(tab);
+                  setMode(tab.id);
                   setError("");
                 }}
                 className={cn(
-                  "flex-1 rounded-md py-2 font-button-text capitalize",
-                  mode === tab
-                    ? "bg-white text-primary shadow-sm"
+                  "flex-1 rounded-md py-2 text-center font-button-text text-button-text transition-all duration-200",
+                  mode === tab.id
+                    ? "bg-surface-container-lowest text-primary shadow-sm"
                     : "text-on-surface-variant"
                 )}
               >
-                {tab}
+                {tab.label}
               </button>
             ))}
           </div>
 
           <form onSubmit={submit} className="space-y-4">
             {mode === "register" ? (
-              <label className="block">
-                <span className="mb-1 block font-label-technical text-xs uppercase text-on-surface-variant">
-                  Full Name
-                </span>
-                <input
+              <>
+                <AuthField
                   name="name"
-                  required
+                  label="NAMA LENGKAP"
+                  placeholder="John Doe"
+                  icon="person"
                   minLength={2}
-                  className="h-12 w-full rounded-lg bg-white px-4 outline-none focus:ring-2 focus:ring-primary/20"
                 />
-              </label>
+                <AuthField
+                  name="companyName"
+                  label="NAMA PERUSAHAAN"
+                  placeholder="PT. Industri Maju"
+                  icon="factory"
+                  minLength={2}
+                />
+              </>
             ) : null}
-            <label className="block">
-              <span className="mb-1 block font-label-technical text-xs uppercase text-on-surface-variant">
-                Email
-              </span>
-              <input
-                name="email"
-                type="email"
-                required
-                className="h-12 w-full rounded-lg bg-white px-4 outline-none focus:ring-2 focus:ring-primary/20"
-                placeholder="name@company.com"
-              />
-            </label>
-            <label className="block">
-              <span className="mb-1 block font-label-technical text-xs uppercase text-on-surface-variant">
-                Password
-              </span>
-              <input
-                name="password"
-                type="password"
-                required
-                minLength={8}
-                className="h-12 w-full rounded-lg bg-white px-4 outline-none focus:ring-2 focus:ring-primary/20"
-                placeholder="Minimum 8 characters"
-              />
-            </label>
-            {error ? <p className="text-body-sm text-error">{error}</p> : null}
+
+            <AuthField
+              name={mode === "login" ? "identifier" : "email"}
+              label={mode === "login" ? "EMAIL / NOMOR TELEPON" : "EMAIL PERUSAHAAN"}
+              placeholder="name@company.com"
+              icon="mail"
+              type={mode === "login" ? "text" : "email"}
+            />
+
+            <PasswordField
+              name="password"
+              label={mode === "login" ? "KATA SANDI" : "KATA SANDI BARU"}
+              placeholder={mode === "login" ? "••••••••" : "Min. 8 Karakter"}
+              autoComplete={mode === "login" ? "current-password" : "new-password"}
+              visible={passwordVisible}
+              onToggle={() => setPasswordVisible((visible) => !visible)}
+            />
+
+            {mode === "register" ? (
+              <>
+                <PasswordField
+                  name="confirmPassword"
+                  label="KONFIRMASI KATA SANDI"
+                  placeholder="••••••••"
+                  autoComplete="new-password"
+                  visible={confirmVisible}
+                  onToggle={() => setConfirmVisible((visible) => !visible)}
+                />
+                <label className="mt-4 flex items-start gap-2">
+                  <input
+                    name="terms"
+                    type="checkbox"
+                    required
+                    className="mt-1 h-4 w-4 rounded border-outline-variant text-primary focus:ring-primary/20"
+                  />
+                  <span className="font-body-sm text-body-sm text-on-surface-variant">
+                    Saya setuju dengan{" "}
+                    <Link href="/profile/privacy" className="font-semibold text-primary hover:underline">
+                      Syarat &amp; Ketentuan
+                    </Link>{" "}
+                    serta{" "}
+                    <Link href="/profile/privacy" className="font-semibold text-primary hover:underline">
+                      Kebijakan Privasi
+                    </Link>
+                  </span>
+                </label>
+              </>
+            ) : (
+              <div className="flex justify-end">
+                <Link
+                  href="/contact"
+                  className="font-body-sm text-body-sm font-semibold text-primary hover:underline"
+                >
+                  Lupa Kata Sandi?
+                </Link>
+              </div>
+            )}
+
+            {error ? (
+              <p role="alert" className="rounded-lg bg-error-container p-3 text-body-sm text-on-error-container">
+                {error}
+              </p>
+            ) : null}
+
             <button
               type="submit"
               disabled={busy}
-              className="flex h-14 w-full items-center justify-center gap-2 rounded-lg bg-primary font-button-text text-white disabled:opacity-60"
+              className="flex h-14 w-full items-center justify-center gap-2 rounded-lg bg-primary font-button-text text-button-text text-on-primary shadow-md transition-transform active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60"
             >
-              {busy ? "Please wait…" : mode === "login" ? "Sign In" : "Create Account"}
-              <MaterialSymbol name={mode === "login" ? "arrow_forward" : "person_add"} />
+              <span>
+                {busy
+                  ? "Mohon tunggu…"
+                  : mode === "login"
+                    ? "Masuk ke Akun"
+                    : "Daftar Sekarang"}
+              </span>
+              <MaterialSymbol
+                name={mode === "login" ? "arrow_forward" : "person_add"}
+                className="text-[20px]"
+              />
             </button>
           </form>
 
-          <div className="my-6 flex items-center gap-4">
-            <div className="h-px flex-1 bg-outline-variant" />
-            <span className="text-xs uppercase text-outline">or</span>
-            <div className="h-px flex-1 bg-outline-variant" />
+          <div className="my-8 flex items-center gap-4">
+            <div className="h-px flex-grow bg-outline-variant" />
+            <span className="font-label-technical text-label-technical uppercase tracking-widest text-outline">
+              Atau
+            </span>
+            <div className="h-px flex-grow bg-outline-variant" />
           </div>
+
           <button
             type="button"
             disabled={googleEnabled !== true || busy}
-            onClick={() => signIn("google", { callbackUrl: "/profile" })}
-            className="flex h-12 w-full items-center justify-center gap-3 rounded-lg border border-border-subtle bg-white font-button-text disabled:cursor-not-allowed disabled:opacity-50"
+            onClick={() => signIn("google", { callbackUrl: "/profile/settings" })}
+            className="flex h-12 w-full items-center justify-center gap-3 rounded-lg border border-border-subtle bg-surface-container-lowest transition-colors active:bg-surface-container-high disabled:cursor-not-allowed disabled:opacity-50"
           >
-            <span className="text-lg font-bold text-[#4285F4]">G</span>
-            Continue with Google
+            <GoogleIcon />
+            <span className="font-button-text text-button-text text-on-surface">
+              Masuk dengan Google
+            </span>
           </button>
+
           {googleEnabled === false ? (
             <p className="mt-2 text-center text-xs text-on-surface-variant">
-              Google login is not active in the current server process. Restart the Next.js server
-              after updating the OAuth environment variables.
+              Login Google belum aktif. Tambahkan GOOGLE_CLIENT_ID dan GOOGLE_CLIENT_SECRET, lalu
+              restart server.
             </p>
           ) : googleEnabled === null ? (
             <p className="mt-2 text-center text-xs text-on-surface-variant">
-              Checking Google login availability…
+              Memeriksa ketersediaan login Google…
             </p>
           ) : null}
         </section>
+
+        <div className="mt-8 pb-8 text-center">
+          {mode === "register" ? (
+            <p className="px-8 font-body-sm text-body-sm text-on-surface-variant">
+              Sudah punya akun?{" "}
+              <button
+                type="button"
+                onClick={() => setMode("login")}
+                className="font-medium text-primary hover:underline"
+              >
+                Masuk di sini
+              </button>
+            </p>
+          ) : (
+            <p className="px-8 font-body-sm text-body-sm text-on-surface-variant">
+              Dengan melanjutkan, Anda menyetujui{" "}
+              <Link href="/profile/privacy" className="font-medium text-primary">
+                Syarat &amp; Ketentuan
+              </Link>{" "}
+              serta{" "}
+              <Link href="/profile/privacy" className="font-medium text-primary">
+                Kebijakan Privasi
+              </Link>{" "}
+              kami.
+            </p>
+          )}
+        </div>
       </div>
     </main>
+  );
+}
+
+type AuthFieldProps = {
+  name: string;
+  label: string;
+  placeholder: string;
+  icon: "person" | "factory" | "mail";
+  type?: "text" | "email";
+  minLength?: number;
+};
+
+function AuthField({
+  name,
+  label,
+  placeholder,
+  icon,
+  type = "text",
+  minLength,
+}: AuthFieldProps) {
+  return (
+    <label className="block space-y-1">
+      <span className="ml-1 block font-label-technical text-label-technical text-on-surface-variant">
+        {label}
+      </span>
+      <span className="relative block">
+        <MaterialSymbol
+          name={icon}
+          className="absolute left-3 top-1/2 -translate-y-1/2 text-[20px] text-outline"
+        />
+        <input
+          name={name}
+          type={type}
+          required
+          minLength={minLength}
+          autoComplete={
+            name === "name"
+              ? "name"
+              : name === "companyName"
+                ? "organization"
+                : type === "email"
+                  ? "email"
+                  : "username"
+          }
+          placeholder={placeholder}
+          className="h-12 w-full rounded-lg bg-surface-container-lowest pl-10 pr-4 font-body-md text-body-md outline-none transition-all focus:ring-2 focus:ring-primary/20"
+        />
+      </span>
+    </label>
+  );
+}
+
+type PasswordFieldProps = {
+  name: string;
+  label: string;
+  placeholder: string;
+  autoComplete: "current-password" | "new-password";
+  visible: boolean;
+  onToggle: () => void;
+};
+
+function PasswordField({
+  name,
+  label,
+  placeholder,
+  autoComplete,
+  visible,
+  onToggle,
+}: PasswordFieldProps) {
+  return (
+    <label className="block space-y-1">
+      <span className="ml-1 block font-label-technical text-label-technical text-on-surface-variant">
+        {label}
+      </span>
+      <span className="relative block">
+        <MaterialSymbol
+          name="lock"
+          className="absolute left-3 top-1/2 -translate-y-1/2 text-[20px] text-outline"
+        />
+        <input
+          name={name}
+          type={visible ? "text" : "password"}
+          required
+          minLength={8}
+          autoComplete={autoComplete}
+          placeholder={placeholder}
+          className="h-12 w-full rounded-lg bg-surface-container-lowest pl-10 pr-12 font-body-md text-body-md outline-none transition-all focus:ring-2 focus:ring-primary/20"
+        />
+        <button
+          type="button"
+          onClick={onToggle}
+          className="absolute right-3 top-1/2 -translate-y-1/2 text-outline hover:text-primary"
+          aria-label={visible ? "Sembunyikan kata sandi" : "Tampilkan kata sandi"}
+        >
+          <MaterialSymbol name={visible ? "visibility_off" : "visibility"} className="text-[20px]" />
+        </button>
+      </span>
+    </label>
+  );
+}
+
+function GoogleIcon() {
+  return (
+    <svg className="h-5 w-5" viewBox="0 0 24 24" aria-hidden="true">
+      <path
+        d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
+        fill="#4285F4"
+      />
+      <path
+        d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
+        fill="#34A853"
+      />
+      <path
+        d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"
+        fill="#FBBC05"
+      />
+      <path
+        d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
+        fill="#EA4335"
+      />
+    </svg>
   );
 }

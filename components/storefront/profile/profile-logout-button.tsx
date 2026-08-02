@@ -33,7 +33,7 @@ export function ProfileLogoutButton() {
         <div className="font-button-text text-button-text text-error">
           {busy ? "Logging out..." : "Logout"}
         </div>
-        <div className="font-body-sm text-body-sm text-error/70">Sign out of your account</div>
+        <div className="font-body-sm text-body-sm text-error/70">Keluar dari Akun</div>
       </div>
     </button>
   );

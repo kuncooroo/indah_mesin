@@ -17,9 +17,41 @@ const providers: NextAuthOptions["providers"] = [
       const password = credentials?.password;
       if (!username || !password) return null;
 
-      const user = await prisma.user.findFirst({
-        where: { OR: [{ username }, { email: username }] },
+      const phoneCandidates = new Set([username]);
+      const looksLikePhone = /^[+\d\s().-]+$/.test(username);
+      const phoneDigits = username.replace(/\D/g, "");
+      const canonicalPhone = phoneDigits.startsWith("0")
+        ? `62${phoneDigits.slice(1)}`
+        : phoneDigits;
+      if (phoneDigits.startsWith("0")) {
+        phoneCandidates.add(`+62 ${phoneDigits.slice(1)}`);
+        phoneCandidates.add(`+62${phoneDigits.slice(1)}`);
+      } else if (phoneDigits.startsWith("62")) {
+        phoneCandidates.add(`+${phoneDigits}`);
+        phoneCandidates.add(`+62 ${phoneDigits.slice(2)}`);
+      }
+
+      let user = await prisma.user.findFirst({
+        where: {
+          OR: [
+            { username },
+            { email: username.toLowerCase() },
+            ...Array.from(phoneCandidates, (phone) => ({ phone })),
+          ],
+        },
       });
+      if (!user && looksLikePhone && canonicalPhone.length >= 8) {
+        const possiblePhoneUsers = await prisma.user.findMany({
+          where: { phone: { endsWith: canonicalPhone.slice(-4) } },
+          take: 20,
+        });
+        user =
+          possiblePhoneUsers.find((candidate) => {
+            const digits = candidate.phone?.replace(/\D/g, "") ?? "";
+            const candidatePhone = digits.startsWith("0") ? `62${digits.slice(1)}` : digits;
+            return candidatePhone === canonicalPhone;
+          }) ?? null;
+      }
       if (!user || !(await bcrypt.compare(password, user.password))) return null;
 
       return {
@@ -70,7 +102,7 @@ export const authOptions: NextAuthOptions = {
       });
       return true;
     },
-    async jwt({ token, user, account }) {
+    async jwt({ token, user, account, trigger, session }) {
       if (user) {
         const u = user as {
           id: string;
@@ -80,6 +112,19 @@ export const authOptions: NextAuthOptions = {
         token.sub = u.id;
         token.username = u.username;
         token.role = u.role;
+      }
+      if (account?.provider) {
+        token.authProvider = account.provider;
+      }
+      if (trigger === "update" && session) {
+        const update = session as {
+          name?: string;
+          email?: string;
+          image?: string | null;
+        };
+        if (update.name) token.name = update.name;
+        if (update.email) token.email = update.email;
+        if ("image" in update) token.picture = update.image ?? undefined;
       }
       if (account?.provider === "google" && token.email) {
         const dbUser = await prisma.user.findUnique({ where: { email: token.email } });
@@ -97,6 +142,10 @@ export const authOptions: NextAuthOptions = {
         session.user.id = token.sub ?? "";
         session.user.username = (token.username as string) ?? "";
         session.user.role = (token.role as Role) ?? "BUYER";
+        session.user.authProvider = token.authProvider;
+        session.user.name = token.name ?? session.user.name;
+        session.user.email = token.email ?? session.user.email;
+        session.user.image = token.picture ?? null;
       }
       return session;
     },

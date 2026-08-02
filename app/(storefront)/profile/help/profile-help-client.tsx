@@ -46,13 +46,22 @@ function FaqItem({ q, a }: { q: string; a: string }) {
 }
 
 export function ProfileHelpClient({ faqs }: { faqs: ShopFaqItem[] }) {
+  const [query, setQuery] = useState("");
   const waHref = buildWhatsAppUrlFromText(
     `Halo Admin ${indahMesinContact.brandName}, saya butuh bantuan dari Help Center.`
   );
+  const normalizedQuery = query.trim().toLowerCase();
+  const visibleFaqs = normalizedQuery
+    ? faqs.filter(
+        (item) =>
+          item.question.toLowerCase().includes(normalizedQuery) ||
+          item.answer.toLowerCase().includes(normalizedQuery)
+      )
+    : faqs;
 
   return (
     <>
-      <ProfileSettingsHeader backHref="/profile" />
+      <ProfileSettingsHeader backHref="/profile" title="Help Center / Support" />
       <main className="min-h-screen bg-background pt-16">
         <div className="flex w-full flex-col pb-24">
           <div className="flex flex-col gap-4 bg-surface-container-low px-margin-mobile py-6">
@@ -73,46 +82,35 @@ export function ProfileHelpClient({ faqs }: { faqs: ShopFaqItem[] }) {
               </div>
               <input
                 type="text"
+                value={query}
+                onChange={(event) => setQuery(event.target.value)}
                 placeholder="Search for parts, manuals, or tracking..."
                 className="h-14 w-full rounded-xl border-none bg-surface-container-highest pl-12 pr-4 font-body-md text-on-surface placeholder:text-outline outline-none transition-all focus:ring-2 focus:ring-primary/20"
               />
             </div>
           </div>
 
-          <div className="-mt-4 px-margin-mobile">
-            <div className="grid grid-cols-2 gap-3">
-              {[
-                { icon: "shopping_cart", title: "How to Order", sub: "RFQ & checkout process" },
-                { icon: "payments", title: "Payment", sub: "Terms & bank details" },
-                { icon: "local_shipping", title: "Shipping", sub: "Logistics & lead times" },
-                { icon: "verified_user", title: "Warranty", sub: "Parts & service plans" },
-              ].map(({ icon, title, sub }) => (
-                <button
-                  key={title}
-                  type="button"
-                  className="group flex flex-col rounded-xl bg-surface-container-lowest p-5 text-left shadow-sm transition-all hover:shadow-md"
-                >
-                  <div className="mb-4 flex h-10 w-10 items-center justify-center rounded-lg bg-primary/5 transition-colors group-hover:bg-primary group-hover:text-on-primary">
-                    <MaterialSymbol name={icon} />
-                  </div>
-                  <span className="mb-1 font-headline-md text-headline-md text-on-surface">
-                    {title}
-                  </span>
-                  <span className="font-body-sm text-body-sm text-on-surface-variant">{sub}</span>
-                </button>
-              ))}
-            </div>
-          </div>
-
-          <div className="mt-section-gap px-margin-mobile">
+          <div className="px-margin-mobile pt-6">
             <div className="mb-4 flex items-center justify-between">
               <h3 className="font-headline-md text-headline-md text-on-surface">Popular Questions</h3>
-              <span className="font-label-technical text-label-technical text-primary">View All</span>
+              <button
+                type="button"
+                onClick={() => setQuery("")}
+                className="font-label-technical text-label-technical text-primary"
+              >
+                View All
+              </button>
             </div>
             <div className="flex flex-col gap-2">
-              {faqs.map((item) => (
-                <FaqItem key={item.question} q={item.question} a={item.answer} />
-              ))}
+              {visibleFaqs.length > 0 ? (
+                visibleFaqs.map((item) => (
+                  <FaqItem key={item.question} q={item.question} a={item.answer} />
+                ))
+              ) : (
+                <p className="rounded-lg bg-surface-container-low p-5 text-center text-body-sm text-on-surface-variant">
+                  No questions match your search.
+                </p>
+              )}
             </div>
           </div>
 

@@ -59,7 +59,7 @@ function BottomNavInner({ pathname }: { pathname: string }) {
 export function StorefrontBottomNav() {
   const pathname = usePathname();
   const canvasClass = shopCanvasClassName(pathname);
-  if (isPoCheckoutPath(pathname)) return null;
+  if (isPoCheckoutPath(pathname) || pathname === "/profile/settings") return null;
 
   return (
     <div className="pointer-events-none fixed inset-x-0 bottom-0 z-40 flex justify-center">
