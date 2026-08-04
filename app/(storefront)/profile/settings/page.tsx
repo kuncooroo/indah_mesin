@@ -1,17 +1,39 @@
 "use client";
 
 import Image from "next/image";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useSession } from "next-auth/react";
-import { ChangeEvent, useEffect, useRef, useState } from "react";
+import { ChangeEvent, Suspense, useEffect, useRef, useState } from "react";
 
 import { ProfileSettingsHeader } from "@/components/storefront/profile/profile-settings-header";
+import { FieldError, FormAlert, inputErrorClass } from "@/components/ui/form-feedback";
 import { MaterialSymbol } from "@/components/ui/material-symbol";
 import { shopCanvasClassName } from "@/lib/storefront/layout-mode";
 import { cn } from "@/lib/utils";
 
 export default function ProfileSettingsPage() {
+  return (
+    <Suspense
+      fallback={
+        <main className="min-h-screen bg-background pt-16">
+          <div className="px-4 py-8 text-on-surface-variant">Memuat pengaturan…</div>
+        </main>
+      }
+    >
+      <ProfileSettingsClient />
+    </Suspense>
+  );
+}
+
+function ProfileSettingsClient() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const needPo = searchParams.get("need") === "po";
+  const missingFromQuery = (searchParams.get("missing") ?? "")
+    .split(",")
+    .map((item) => item.trim())
+    .filter(Boolean);
+  const productId = searchParams.get("product");
   const { data: session, update: updateSession } = useSession();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [name, setName] = useState("");
@@ -26,6 +48,7 @@ export default function ProfileSettingsPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
 
   useEffect(() => {
     void fetch("/api/profile")
@@ -63,12 +86,15 @@ export default function ProfileSettingsPage() {
 
   async function handleSave() {
     setError("");
-    if (name.trim().length < 2) {
-      setError("Nama lengkap minimal 2 karakter.");
-      return;
+    const nextErrors: Record<string, string> = {};
+    if (name.trim().length < 2) nextErrors.name = "Nama lengkap minimal 2 karakter.";
+    if (needPo && !phone.trim()) nextErrors.phone = "Nomor telepon PIC wajib diisi untuk membuat PO.";
+    if (newPassword) {
+      if (newPassword.length < 8) nextErrors.newPassword = "Kata sandi baru minimal 8 karakter.";
+      if (!currentPassword) nextErrors.currentPassword = "Masukkan kata sandi saat ini.";
     }
-    if (newPassword && !currentPassword) {
-      setError("Masukkan kata sandi saat ini untuk mengganti kata sandi.");
+    setFieldErrors(nextErrors);
+    if (Object.keys(nextErrors).length > 0) {
       return;
     }
 
@@ -113,8 +139,12 @@ export default function ProfileSettingsPage() {
       }
       setCurrentPassword("");
       setNewPassword("");
+      setFieldErrors({});
       setSaved(true);
       window.setTimeout(() => setSaved(false), 2000);
+      if (needPo && productId) {
+        router.push(`/po-preview?product=${encodeURIComponent(productId)}`);
+      }
     } catch {
       setError("Koneksi bermasalah. Coba simpan kembali.");
     } finally {
@@ -178,6 +208,17 @@ export default function ProfileSettingsPage() {
           </div>
 
           <div className={cn("space-y-6 px-4", loading && "pointer-events-none opacity-60")}>
+            {needPo ? (
+              <div className="space-y-1 rounded-xl border border-error/20 bg-error-container/40 p-3">
+                {(missingFromQuery.length > 0
+                  ? missingFromQuery
+                  : ["nomor telepon PIC"]
+                ).map((field) => (
+                  <FieldError key={field} message={`Lengkapi ${field} untuk membuat PO.`} />
+                ))}
+              </div>
+            ) : null}
+
             <div className="space-y-4">
               <div className="mb-1 flex items-center gap-2">
                 <MaterialSymbol name="person_outline" className="text-[20px] text-primary" />
@@ -195,7 +236,11 @@ export default function ProfileSettingsPage() {
                     type="text"
                     value={name}
                     onChange={(event) => setName(event.target.value)}
-                    className="h-12 w-full rounded-xl bg-surface-container px-4 font-body-md text-on-surface outline-none transition-all focus:ring-2 focus:ring-primary/20"
+                    aria-invalid={Boolean(fieldErrors.name)}
+                    className={cn(
+                      "h-12 w-full rounded-xl border border-transparent bg-surface-container px-4 font-body-md text-on-surface outline-none transition-all focus:ring-2 focus:ring-primary/20",
+                      inputErrorClass(Boolean(fieldErrors.name))
+                    )}
                     placeholder="Enter your full name"
                   />
                   <MaterialSymbol
@@ -203,6 +248,7 @@ export default function ProfileSettingsPage() {
                     className="absolute right-4 top-1/2 -translate-y-1/2 text-[20px] text-outline"
                   />
                 </div>
+                <FieldError message={fieldErrors.name} />
               </div>
 
               <div className="space-y-1.5 opacity-80">
@@ -238,10 +284,15 @@ export default function ProfileSettingsPage() {
                     type="tel"
                     value={phone}
                     onChange={(event) => setPhone(event.target.value)}
-                    className="h-12 flex-1 rounded-xl bg-surface-container px-4 font-body-md text-on-surface outline-none transition-all focus:ring-2 focus:ring-primary/20"
+                    aria-invalid={Boolean(fieldErrors.phone)}
+                    className={cn(
+                      "h-12 flex-1 rounded-xl border border-transparent bg-surface-container px-4 font-body-md text-on-surface outline-none transition-all focus:ring-2 focus:ring-primary/20",
+                      inputErrorClass(Boolean(fieldErrors.phone))
+                    )}
                     placeholder="8xx xxxx xxxx"
                   />
                 </div>
+                <FieldError message={fieldErrors.phone} />
               </div>
 
             </div>
@@ -283,9 +334,14 @@ export default function ProfileSettingsPage() {
                       type="password"
                       value={currentPassword}
                       onChange={(event) => setCurrentPassword(event.target.value)}
-                      className="h-12 w-full rounded-xl bg-surface-container px-4 font-body-md text-on-surface outline-none"
+                      aria-invalid={Boolean(fieldErrors.currentPassword)}
+                      className={cn(
+                        "h-12 w-full rounded-xl border border-transparent bg-surface-container px-4 font-body-md text-on-surface outline-none",
+                        inputErrorClass(Boolean(fieldErrors.currentPassword))
+                      )}
                       placeholder="••••••••"
                     />
+                    <FieldError message={fieldErrors.currentPassword} />
                   </div>
                   <div className="space-y-1.5">
                     <label className="ml-1 font-label-technical text-label-technical uppercase text-on-surface-variant">
@@ -295,9 +351,14 @@ export default function ProfileSettingsPage() {
                       type="password"
                       value={newPassword}
                       onChange={(event) => setNewPassword(event.target.value)}
-                      className="h-12 w-full rounded-xl bg-surface-container px-4 font-body-md text-on-surface outline-none"
+                      aria-invalid={Boolean(fieldErrors.newPassword)}
+                      className={cn(
+                        "h-12 w-full rounded-xl border border-transparent bg-surface-container px-4 font-body-md text-on-surface outline-none",
+                        inputErrorClass(Boolean(fieldErrors.newPassword))
+                      )}
                       placeholder="Min. 8 characters"
                     />
+                    <FieldError message={fieldErrors.newPassword} />
                   </div>
                 </div>
               ) : null}
@@ -305,9 +366,9 @@ export default function ProfileSettingsPage() {
           </div>
 
           {error ? (
-            <p className="fixed bottom-20 left-4 right-4 z-50 mx-auto max-w-[398px] rounded-lg bg-error-container p-3 text-center text-body-sm text-on-error-container shadow-lg">
-              {error}
-            </p>
+            <div className="fixed bottom-20 left-4 right-4 z-50 mx-auto max-w-[398px]">
+              <FormAlert message={error} />
+            </div>
           ) : null}
           <div className="pointer-events-none fixed inset-x-0 bottom-0 z-40 flex justify-center">
             <div

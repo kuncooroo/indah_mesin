@@ -1,11 +1,11 @@
 "use client";
 
 import { useTransition } from "react";
-import type { Role } from "@prisma/client";
+import type { AdminRole } from "@prisma/client";
 import { toast } from "sonner";
 import { updateUserRole } from "@/lib/admin-actions";
 
-const roles: Role[] = ["BUYER", "ADMIN", "SUPERADMIN"];
+const adminRoles: AdminRole[] = ["ADMIN", "SUPERADMIN"];
 
 export function UserRoleSelect({
   userId,
@@ -13,7 +13,7 @@ export function UserRoleSelect({
   disabled,
 }: {
   userId: string;
-  currentRole: Role;
+  currentRole: AdminRole;
   disabled?: boolean;
 }) {
   const [pending, startTransition] = useTransition();
@@ -23,11 +23,11 @@ export function UserRoleSelect({
       disabled={disabled || pending}
       value={currentRole}
       onChange={(e) => {
-        const role = e.target.value as Role;
+        const role = e.target.value as AdminRole;
         startTransition(async () => {
           try {
             await updateUserRole(userId, role);
-            toast.success("Role diperbarui");
+            toast.success("Role admin diperbarui");
           } catch (err) {
             toast.error(err instanceof Error ? err.message : "Gagal memperbarui role");
           }
@@ -35,7 +35,7 @@ export function UserRoleSelect({
       }}
       className="rounded-md border border-zinc-300 bg-white px-2 py-1.5 text-sm disabled:opacity-50"
     >
-      {roles.map((r) => (
+      {adminRoles.map((r) => (
         <option key={r} value={r}>
           {r}
         </option>

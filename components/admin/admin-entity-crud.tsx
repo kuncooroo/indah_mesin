@@ -239,12 +239,11 @@ export function UserCreateDialog({
         <AdminFormField label="Nama" name="name" />
         <AdminFormField label="Email" name="email" type="email" />
         <AdminFormField
-          label="Role"
+          label="Role Admin"
           name="role"
           as="select"
           defaultValue="ADMIN"
           options={[
-            { value: "BUYER", label: "BUYER" },
             { value: "ADMIN", label: "ADMIN" },
             { value: "SUPERADMIN", label: "SUPERADMIN" },
           ]}
@@ -265,7 +264,7 @@ export function CustomerEditDialog({
     name: string | null;
     email: string | null;
     phone: string | null;
-    role: string;
+    role?: string;
     companyId: string | null;
     companyName: string | null;
     customBuyerId: string | null;
@@ -288,17 +287,6 @@ export function CustomerEditDialog({
           as="select"
           defaultValue={row.companyId ?? ""}
           options={[{ value: "", label: "— Pilih —" }, ...companies.map((c) => ({ value: c.id, label: c.label }))]}
-        />
-        <AdminFormField
-          label="Role akun"
-          name="role"
-          as="select"
-          defaultValue={row.role}
-          options={[
-            { value: "BUYER", label: "Buyer" },
-            { value: "PURCHASING", label: "Purchasing" },
-            { value: "APPROVER", label: "Approver" },
-          ]}
         />
         <AdminFormField label="Perusahaan (legacy teks)" name="companyName" defaultValue={row.companyName ?? ""} />
         <AdminFormField label="Buyer ID" name="customBuyerId" defaultValue={row.customBuyerId ?? ""} />

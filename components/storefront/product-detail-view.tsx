@@ -1,7 +1,8 @@
 "use client";
 
 import Image from "next/image";
-import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { useSession } from "next-auth/react";
 import { useMemo, useState } from "react";
 import { MaterialSymbol } from "@/components/ui/material-symbol";
 import type { Product } from "@/lib/storefront/product-types";
@@ -40,6 +41,8 @@ function StatusBadge({ product }: { product: Product }) {
 }
 
 export function ProductDetailView({ product }: { product: Product }) {
+  const router = useRouter();
+  const { data: session, status: sessionStatus } = useSession();
   const enrichment = getProductDetailEnrichment(product.sku);
 
   const images = useMemo(() => {
@@ -49,6 +52,7 @@ export function ProductDetailView({ product }: { product: Product }) {
   }, [enrichment, product.gallery, product.image]);
 
   const [activeImage, setActiveImage] = useState(0);
+  const [poBusy, setPoBusy] = useState(false);
   const thumbnails = useMemo(() => {
     const pool = images.length >= 4 ? images.slice(0, 4) : images;
     while (pool.length < 4 && images[0]) pool.push(images[0]);
@@ -68,6 +72,51 @@ export function ProductDetailView({ product }: { product: Product }) {
     ?.replace("Harga belum termasuk", "Price excludes")
     .replace("instalasi", "installation")
     .replace("pengiriman luar kota", "out-of-town delivery");
+
+  async function createPoDraft() {
+    if (sessionStatus === "loading" || poBusy) return;
+
+    if (sessionStatus !== "authenticated") {
+      router.push(
+        `/profile?need=po&next=${encodeURIComponent(poPreviewHref)}`
+      );
+      return;
+    }
+    setPoBusy(true);
+    try {
+      const response = await fetch("/api/profile/po-readiness");
+      const result = (await response.json()) as {
+        ready?: boolean;
+        missingFields?: string[];
+        completionPath?: string | null;
+      };
+
+      if (!result.ready) {
+        const missing = result.missingFields?.filter((field) => field !== "login") ?? [];
+        const target = result.completionPath ?? "/profile/business";
+        const params = new URLSearchParams({
+          need: "po",
+          product: product.id,
+          missing: missing.join(","),
+        });
+        router.push(`${target}?${params.toString()}`);
+        return;
+      }
+
+      writePoDraft(
+        {
+          ...DEFAULT_PO_DRAFT,
+          voltage: defaultVoltageForProduct(product),
+          quantity: 1,
+          requestId: crypto.randomUUID(),
+        },
+        product.id
+      );
+      router.push(poPreviewHref);
+    } finally {
+      setPoBusy(false);
+    }
+  }
 
   return (
     <>
@@ -232,24 +281,20 @@ export function ProductDetailView({ product }: { product: Product }) {
       </main>
 
       <StorefrontMobileFixedBar bottomClass="bottom-16" className="sticky-ctwa border-t border-border bg-white/90 p-4 backdrop-blur-md">
-        <div className="flex">
-          <Link
-            href={poPreviewHref}
-            onClick={() =>
-              writePoDraft(
-                {
-                  ...DEFAULT_PO_DRAFT,
-                  voltage: defaultVoltageForProduct(product),
-                  quantity: 1,
-                },
-                product.id
-              )
-            }
-            className="flex w-full items-center justify-center gap-2 rounded-xl border-2 border-primary bg-white py-3.5 font-bold text-primary shadow-sm transition-colors hover:bg-primary-container active:bg-primary-container"
+        <div className="flex w-full flex-col gap-2">
+          <button
+            type="button"
+            onClick={() => void createPoDraft()}
+            disabled={sessionStatus === "loading" || poBusy}
+            className="flex w-full items-center justify-center gap-2 rounded-xl border-2 border-primary bg-white py-3.5 font-bold text-primary shadow-sm transition-colors hover:bg-primary-container active:bg-primary-container disabled:opacity-60"
           >
             <MaterialSymbol name="note_add" />
-            Create PO Draft
-          </Link>
+            {sessionStatus === "loading" || poBusy
+              ? "Checking Account…"
+              : sessionStatus === "unauthenticated"
+                ? "Login to Create PO Draft"
+                : "Create PO Draft"}
+          </button>
         </div>
       </StorefrontMobileFixedBar>
     </>

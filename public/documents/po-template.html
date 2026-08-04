@@ -129,7 +129,7 @@
 <h1 class="font-headline-lg text-headline-lg text-primary tracking-tight">PURCHASE ORDER</h1>
 <div class="mt-4 flex flex-col gap-1">
 <p class="font-label-technical text-label-technical text-on-surface-variant uppercase">PO Number</p>
-<p class="font-body-md text-body-md font-bold">PO-2023-11-00429</p>
+<p id="po-number" class="font-body-md text-body-md font-bold">—</p>
 </div>
 </div>
 <div class="text-right flex flex-col items-end">
@@ -137,7 +137,7 @@
 <span class="font-headline-md text-headline-md font-extrabold text-primary uppercase tracking-tighter">MesinBagus</span>
 </div>
 <p class="font-label-technical text-label-technical text-on-surface-variant uppercase">Date Issued</p>
-<p class="font-body-md text-body-md font-bold">October 24, 2023</p>
+<p id="po-date" class="font-body-md text-body-md font-bold">—</p>
 </div>
 </div>
 <!-- Entities Information -->
@@ -148,6 +148,8 @@
 <div class="space-y-1">
 <p id="po-buyer-company" class="font-body-md text-body-md font-bold text-on-surface">Buyer Company</p>
 <p id="po-buyer-name" class="font-body-sm text-body-sm text-on-surface-variant">Buyer Name</p>
+<p id="po-buyer-npwp" class="font-body-sm text-body-sm text-on-surface-variant">NPWP: —</p>
+<p id="po-buyer-nib" class="font-body-sm text-body-sm text-on-surface-variant">NIB: —</p>
 <p id="po-buyer-address" class="font-body-sm text-body-sm text-on-surface-variant">Buyer Address</p>
 <p id="po-buyer-email" class="font-body-sm text-body-sm text-on-surface-variant">Buyer Email</p>
 <p id="po-buyer-phone" class="font-body-sm text-body-sm text-on-surface-variant">Buyer Phone</p>
@@ -246,7 +248,7 @@
 </div>
 <!-- Footer Small Print -->
 <div class="text-center pt-8 border-t border-border-subtle text-[10px] text-outline font-label-technical uppercase tracking-widest">
-                Generated via MesinBagus Digital Procurement Platform • Document Ref: {{DATA:PO_REF_2023}}
+                Generated via MesinBagus Digital Procurement Platform • Document Ref: <span id="po-ref">—</span>
             </div>
 </div>
 </main>

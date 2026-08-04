@@ -12,6 +12,7 @@ import {
   Store,
   Globe,
   Settings,
+  UserRoundX,
 } from "lucide-react";
 
 export type AdminNavItem = {
@@ -57,6 +58,12 @@ export const adminNavGroups: AdminNavGroup[] = [
         href: "/admin/companies",
         label: "Perusahaan",
         icon: Building2,
+        matchPrefix: true,
+      },
+      {
+        href: "/admin/customers",
+        label: "User tanpa perusahaan",
+        icon: UserRoundX,
         matchPrefix: true,
       },
     ],

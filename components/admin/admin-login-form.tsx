@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { signIn } from "next-auth/react";
+import { signIn, signOut } from "next-auth/react";
 import { toast } from "sonner";
 
 export function AdminLoginForm() {
@@ -13,6 +13,7 @@ export function AdminLoginForm() {
     e.preventDefault();
     setLoading(true);
 
+    // SessionProvider admin memakai basePath `/api/admin/auth`
     const result = await signIn("credentials", {
       username: username.trim(),
       password,
@@ -26,13 +27,13 @@ export function AdminLoginForm() {
       return;
     }
 
-    const res = await fetch("/api/auth/session");
+    const res = await fetch("/api/admin/auth/session");
     const session = (await res.json()) as { user?: { role?: string } };
     const role = session.user?.role;
 
     if (role !== "ADMIN" && role !== "SUPERADMIN") {
       toast.error("Akun ini bukan admin. Gunakan halaman marketplace.");
-      await fetch("/api/auth/signout", { method: "POST" });
+      await signOut({ redirect: false });
       return;
     }
 

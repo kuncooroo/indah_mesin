@@ -1,31 +1,55 @@
 import Image from "next/image";
 import Link from "next/link";
 import { getServerSession } from "next-auth";
+import { Suspense } from "react";
 
 import { ProfileLogoutButton } from "@/components/storefront/profile/profile-logout-button";
 import { ProfileAuthPanel } from "@/components/storefront/profile/profile-auth-panel";
 import { ProfileSettingsHeader } from "@/components/storefront/profile/profile-settings-header";
 import { MaterialSymbol } from "@/components/ui/material-symbol";
-import { authOptions } from "@/lib/auth";
+import { getStorefrontSession } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 
+function AuthPanelFallback() {
+  return (
+    <main className="bg-background pb-0 pt-8">
+      <div className="mx-auto flex w-full max-w-md flex-col px-margin-mobile py-16 text-center text-on-surface-variant">
+        Memuat formulir masuk…
+      </div>
+    </main>
+  );
+}
+
 export default async function ProfilePage() {
-  const session = await getServerSession(authOptions);
+  // Session storefront terpisah dari cookie admin — bisa login berdampingan.
+  const session = await getStorefrontSession();
   if (!session?.user?.id) {
-    return <ProfileAuthPanel />;
+    return (
+      <Suspense fallback={<AuthPanelFallback />}>
+        <ProfileAuthPanel />
+      </Suspense>
+    );
   }
 
   const dbUser = await prisma.user.findUnique({
     where: { id: session.user.id },
     include: {
-      company: true,
+      company: { include: { _count: { select: { addresses: true } } } },
       _count: { select: { orders: true, archiveDocuments: true } },
     },
   });
   if (!dbUser) {
-    return <ProfileAuthPanel />;
+    return (
+      <Suspense fallback={<AuthPanelFallback />}>
+        <ProfileAuthPanel />
+      </Suspense>
+    );
   }
   const company = dbUser.company?.companyName ?? dbUser.companyName ?? "Pembeli independen";
+  const businessIncomplete =
+    !dbUser.company?.npwpNumber ||
+    !dbUser.company?.nibNumber ||
+    !dbUser.company._count.addresses;
   const initials = dbUser.name
     .split(/\s+/)
     .slice(0, 2)
@@ -72,6 +96,18 @@ export default async function ProfilePage() {
             </div>
           </section>
 
+          {businessIncomplete ? (
+            <Link
+              href="/profile/business"
+              className="mx-margin-mobile mb-6 flex items-start gap-3 rounded-xl border border-status-indent/20 bg-status-indent/10 p-4"
+            >
+              <MaterialSymbol name="info" className="text-status-indent" />
+              <p className="font-body-sm text-body-sm text-on-surface-variant">
+                Lengkapi data legalitas &amp; alamat PT untuk mulai transaksi PO
+              </p>
+            </Link>
+          ) : null}
+
           <section className="grid grid-cols-2 gap-gutter px-margin-mobile">
             <Link
               href="/profile/orders"
@@ -112,7 +148,25 @@ export default async function ProfilePage() {
                   Account Settings
                 </div>
                 <div className="line-clamp-1 font-body-sm text-body-sm text-on-surface-variant">
-                  Atur Foto, Nama, Email, Password, Alamat
+                  Atur foto, nama, telepon, dan password
+                </div>
+              </div>
+              <MaterialSymbol name="chevron_right" className="text-outline" />
+            </Link>
+
+            <Link
+              href="/profile/business"
+              className="flex items-center rounded-xl bg-surface-container-lowest p-4 text-left transition-colors hover:bg-surface-container-low"
+            >
+              <div className="flex h-10 w-10 items-center justify-center rounded-full text-on-surface-variant">
+                <MaterialSymbol name="corporate_fare" />
+              </div>
+              <div className="ml-4 flex-1">
+                <div className="font-button-text text-button-text text-on-surface">
+                  Profil Perusahaan
+                </div>
+                <div className="line-clamp-1 font-body-sm text-body-sm text-on-surface-variant">
+                  Detail legalitas, NPWP, NIB, dan alamat kantor
                 </div>
               </div>
               <MaterialSymbol name="chevron_right" className="text-outline" />

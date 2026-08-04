@@ -1,15 +1,26 @@
 "use client";
 
 import Link from "next/link";
-import { getProviders, signIn } from "next-auth/react";
+import { useSearchParams } from "next/navigation";
+import { getProviders, getSession, signIn } from "next-auth/react";
 import { FormEvent, useEffect, useState } from "react";
 import { MaterialSymbol } from "@/components/ui/material-symbol";
+import { FieldError, FormAlert, inputErrorClass } from "@/components/ui/form-feedback";
 import { cn } from "@/lib/utils";
 
+type FieldErrors = Partial<
+  Record<"name" | "companyName" | "identifier" | "password" | "confirmPassword" | "terms", string>
+>;
+
 export function ProfileAuthPanel() {
+  const searchParams = useSearchParams();
+  const nextPath = searchParams.get("next");
+  const needPo = searchParams.get("need") === "po";
+  const resetDone = searchParams.get("reset") === "1";
   const [mode, setMode] = useState<"login" | "register">("login");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
   const [googleEnabled, setGoogleEnabled] = useState<boolean | null>(null);
   const [passwordVisible, setPasswordVisible] = useState(false);
   const [confirmVisible, setConfirmVisible] = useState(false);
@@ -20,27 +31,64 @@ export function ProfileAuthPanel() {
     });
   }, []);
 
+  function validate(form: FormData): FieldErrors {
+    const next: FieldErrors = {};
+    const identifier = String(form.get(mode === "login" ? "identifier" : "email") ?? "").trim();
+    const password = String(form.get("password") ?? "");
+
+    if (!identifier) {
+      next.identifier =
+        mode === "login" ? "Email atau nomor telepon wajib diisi." : "Email perusahaan wajib diisi.";
+    } else if (mode === "register" && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(identifier)) {
+      next.identifier = "Format email tidak valid.";
+    }
+
+    if (!password) {
+      next.password = "Kata sandi wajib diisi.";
+    } else if (mode === "register" && password.length < 8) {
+      next.password = "Kata sandi minimal 8 karakter.";
+    }
+
+    if (mode === "register") {
+      const name = String(form.get("name") ?? "").trim();
+      const companyName = String(form.get("companyName") ?? "").trim();
+      const confirmPassword = String(form.get("confirmPassword") ?? "");
+
+      if (name.length < 2) next.name = "Nama lengkap minimal 2 karakter.";
+      if (companyName.length < 2) next.companyName = "Nama perusahaan minimal 2 karakter.";
+      if (!confirmPassword) {
+        next.confirmPassword = "Konfirmasi kata sandi wajib diisi.";
+      } else if (password !== confirmPassword) {
+        next.confirmPassword = "Konfirmasi kata sandi tidak cocok.";
+      }
+      if (form.get("terms") !== "on") {
+        next.terms = "Anda harus menyetujui Syarat & Ketentuan dan Kebijakan Privasi.";
+      }
+    }
+
+    return next;
+  }
+
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setBusy(true);
     setError("");
     const form = new FormData(event.currentTarget);
+    const errors = validate(form);
+    setFieldErrors(errors);
+    if (Object.keys(errors).length > 0) {
+      setBusy(false);
+      return;
+    }
+
     const identifier = String(form.get(mode === "login" ? "identifier" : "email") ?? "").trim();
     const password = String(form.get("password") ?? "");
-    const destination = mode === "register" ? "/profile/settings" : "/profile";
+    const destination =
+      nextPath && nextPath.startsWith("/") && !nextPath.startsWith("//")
+        ? nextPath
+        : "/beranda-artikel";
 
     if (mode === "register") {
-      const confirmPassword = String(form.get("confirmPassword") ?? "");
-      if (password !== confirmPassword) {
-        setError("Konfirmasi kata sandi tidak cocok.");
-        setBusy(false);
-        return;
-      }
-      if (form.get("terms") !== "on") {
-        setError("Anda harus menyetujui Syarat & Ketentuan dan Kebijakan Privasi.");
-        setBusy(false);
-        return;
-      }
       const response = await fetch("/api/auth/register", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -62,19 +110,28 @@ export function ProfileAuthPanel() {
     const result = await signIn("credentials", {
       username: identifier,
       password,
+      portal: "storefront",
       redirect: false,
       callbackUrl: destination,
     });
     if (result?.ok) {
-      window.location.assign(destination);
+      const activeSession = await getSession();
+      const role = activeSession?.user.role;
+      window.location.assign(
+        role === "ADMIN" || role === "SUPERADMIN" ? "/admin/dashboard" : destination
+      );
       return;
     }
     setError("Email, nomor telepon, atau kata sandi tidak valid.");
+    setFieldErrors({
+      identifier: "Periksa email / nomor telepon.",
+      password: "Periksa kata sandi.",
+    });
     setBusy(false);
   }
 
   return (
-    <main className="min-h-screen bg-background pb-24 pt-16">
+    <main className="bg-background pb-0 pt-8">
       <div className="mx-auto flex w-full max-w-md flex-col px-margin-mobile">
         <div className="flex flex-col items-center justify-center py-section-gap">
           <div className="group relative">
@@ -96,7 +153,18 @@ export function ProfileAuthPanel() {
           </div>
         </div>
 
-        <section className="w-full rounded-xl bg-surface-container-low p-component-padding shadow-sm">
+        {needPo ? (
+          <div className="mb-2 space-y-1 rounded-xl border border-error/20 bg-error-container/40 p-3">
+            <FieldError message="Login atau daftar dulu untuk membuat Purchase Order." />
+          </div>
+        ) : null}
+        {resetDone ? (
+          <p className="mb-2 rounded-xl bg-secondary-container/40 p-3 text-body-sm text-on-surface">
+            Kata sandi berhasil diubah. Silakan masuk dengan kata sandi baru.
+          </p>
+        ) : null}
+
+        <section className="mt-4 w-full rounded-xl bg-surface-container-low p-component-padding shadow-sm">
           <div className="mb-6 flex rounded-lg bg-surface-container-highest p-1">
             {(
               [
@@ -110,6 +178,7 @@ export function ProfileAuthPanel() {
                 onClick={() => {
                   setMode(tab.id);
                   setError("");
+                  setFieldErrors({});
                 }}
                 className={cn(
                   "flex-1 rounded-md py-2 text-center font-button-text text-button-text transition-all duration-200",
@@ -123,7 +192,7 @@ export function ProfileAuthPanel() {
             ))}
           </div>
 
-          <form onSubmit={submit} className="space-y-4">
+          <form onSubmit={submit} className="space-y-4" noValidate>
             {mode === "register" ? (
               <>
                 <AuthField
@@ -132,6 +201,7 @@ export function ProfileAuthPanel() {
                   placeholder="John Doe"
                   icon="person"
                   minLength={2}
+                  error={fieldErrors.name}
                 />
                 <AuthField
                   name="companyName"
@@ -139,6 +209,7 @@ export function ProfileAuthPanel() {
                   placeholder="PT. Industri Maju"
                   icon="factory"
                   minLength={2}
+                  error={fieldErrors.companyName}
                 />
               </>
             ) : null}
@@ -149,6 +220,7 @@ export function ProfileAuthPanel() {
               placeholder="name@company.com"
               icon="mail"
               type={mode === "login" ? "text" : "email"}
+              error={fieldErrors.identifier}
             />
 
             <PasswordField
@@ -158,6 +230,7 @@ export function ProfileAuthPanel() {
               autoComplete={mode === "login" ? "current-password" : "new-password"}
               visible={passwordVisible}
               onToggle={() => setPasswordVisible((visible) => !visible)}
+              error={fieldErrors.password}
             />
 
             {mode === "register" ? (
@@ -169,13 +242,16 @@ export function ProfileAuthPanel() {
                   autoComplete="new-password"
                   visible={confirmVisible}
                   onToggle={() => setConfirmVisible((visible) => !visible)}
+                  error={fieldErrors.confirmPassword}
                 />
                 <label className="mt-4 flex items-start gap-2">
                   <input
                     name="terms"
                     type="checkbox"
-                    required
-                    className="mt-1 h-4 w-4 rounded border-outline-variant text-primary focus:ring-primary/20"
+                    className={cn(
+                      "mt-1 h-4 w-4 rounded border-outline-variant text-primary focus:ring-primary/20",
+                      fieldErrors.terms && "border-error"
+                    )}
                   />
                   <span className="font-body-sm text-body-sm text-on-surface-variant">
                     Saya setuju dengan{" "}
@@ -188,11 +264,12 @@ export function ProfileAuthPanel() {
                     </Link>
                   </span>
                 </label>
+                <FieldError message={fieldErrors.terms} />
               </>
             ) : (
               <div className="flex justify-end">
                 <Link
-                  href="/contact"
+                  href="/profile/forgot-password"
                   className="font-body-sm text-body-sm font-semibold text-primary hover:underline"
                 >
                   Lupa Kata Sandi?
@@ -200,11 +277,7 @@ export function ProfileAuthPanel() {
               </div>
             )}
 
-            {error ? (
-              <p role="alert" className="rounded-lg bg-error-container p-3 text-body-sm text-on-error-container">
-                {error}
-              </p>
-            ) : null}
+            <FormAlert message={error} />
 
             <button
               type="submit"
@@ -236,7 +309,14 @@ export function ProfileAuthPanel() {
           <button
             type="button"
             disabled={googleEnabled !== true || busy}
-            onClick={() => signIn("google", { callbackUrl: "/profile/settings" })}
+            onClick={() =>
+              signIn("google", {
+                callbackUrl:
+                  nextPath && nextPath.startsWith("/") && !nextPath.startsWith("//")
+                    ? nextPath
+                    : "/beranda-artikel",
+              })
+            }
             className="flex h-12 w-full items-center justify-center gap-3 rounded-lg border border-border-subtle bg-surface-container-lowest transition-colors active:bg-surface-container-high disabled:cursor-not-allowed disabled:opacity-50"
           >
             <GoogleIcon />
@@ -246,10 +326,17 @@ export function ProfileAuthPanel() {
           </button>
 
           {googleEnabled === false ? (
-            <p className="mt-2 text-center text-xs text-on-surface-variant">
-              Login Google belum aktif. Tambahkan GOOGLE_CLIENT_ID dan GOOGLE_CLIENT_SECRET, lalu
-              restart server.
-            </p>
+            <div className="mt-3 space-y-1 rounded-lg border border-status-indent/30 bg-status-indent/10 p-3 text-left text-xs text-on-surface">
+              <p className="font-semibold">Login Google belum dikonfigurasi.</p>
+              <p>1. Buat OAuth Client di Google Cloud Console (tipe Web).</p>
+              <p>2. Authorized redirect URI: {"{APP_URL}/api/auth/callback/google"}</p>
+              <p>
+                3. Isi <code className="font-mono">GOOGLE_CLIENT_ID</code> dan{" "}
+                <code className="font-mono">GOOGLE_CLIENT_SECRET</code> di file{" "}
+                <code className="font-mono">.env</code>.
+              </p>
+              <p>4. Restart server development / production.</p>
+            </div>
           ) : googleEnabled === null ? (
             <p className="mt-2 text-center text-xs text-on-surface-variant">
               Memeriksa ketersediaan login Google…
@@ -257,7 +344,7 @@ export function ProfileAuthPanel() {
           ) : null}
         </section>
 
-        <div className="mt-8 pb-8 text-center">
+        <div className="mt-4 pb-1 text-center">
           {mode === "register" ? (
             <p className="px-8 font-body-sm text-body-sm text-on-surface-variant">
               Sudah punya akun?{" "}
@@ -295,6 +382,7 @@ type AuthFieldProps = {
   icon: "person" | "factory" | "mail";
   type?: "text" | "email";
   minLength?: number;
+  error?: string;
 };
 
 function AuthField({
@@ -304,6 +392,7 @@ function AuthField({
   icon,
   type = "text",
   minLength,
+  error,
 }: AuthFieldProps) {
   return (
     <label className="block space-y-1">
@@ -318,8 +407,8 @@ function AuthField({
         <input
           name={name}
           type={type}
-          required
           minLength={minLength}
+          aria-invalid={Boolean(error)}
           autoComplete={
             name === "name"
               ? "name"
@@ -330,9 +419,13 @@ function AuthField({
                   : "username"
           }
           placeholder={placeholder}
-          className="h-12 w-full rounded-lg bg-surface-container-lowest pl-10 pr-4 font-body-md text-body-md outline-none transition-all focus:ring-2 focus:ring-primary/20"
+          className={cn(
+            "h-12 w-full rounded-lg border border-transparent bg-surface-container-lowest pl-10 pr-4 font-body-md text-body-md outline-none transition-all focus:ring-2 focus:ring-primary/20",
+            inputErrorClass(Boolean(error))
+          )}
         />
       </span>
+      <FieldError message={error} />
     </label>
   );
 }
@@ -344,6 +437,7 @@ type PasswordFieldProps = {
   autoComplete: "current-password" | "new-password";
   visible: boolean;
   onToggle: () => void;
+  error?: string;
 };
 
 function PasswordField({
@@ -353,6 +447,7 @@ function PasswordField({
   autoComplete,
   visible,
   onToggle,
+  error,
 }: PasswordFieldProps) {
   return (
     <label className="block space-y-1">
@@ -367,11 +462,14 @@ function PasswordField({
         <input
           name={name}
           type={visible ? "text" : "password"}
-          required
           minLength={8}
+          aria-invalid={Boolean(error)}
           autoComplete={autoComplete}
           placeholder={placeholder}
-          className="h-12 w-full rounded-lg bg-surface-container-lowest pl-10 pr-12 font-body-md text-body-md outline-none transition-all focus:ring-2 focus:ring-primary/20"
+          className={cn(
+            "h-12 w-full rounded-lg border border-transparent bg-surface-container-lowest pl-10 pr-12 font-body-md text-body-md outline-none transition-all focus:ring-2 focus:ring-primary/20",
+            inputErrorClass(Boolean(error))
+          )}
         />
         <button
           type="button"
@@ -382,6 +480,7 @@ function PasswordField({
           <MaterialSymbol name={visible ? "visibility_off" : "visibility"} className="text-[20px]" />
         </button>
       </span>
+      <FieldError message={error} />
     </label>
   );
 }

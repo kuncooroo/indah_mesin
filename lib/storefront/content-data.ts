@@ -51,7 +51,7 @@ export const stitchScreens = [
     order: 10,
     screenId: "710008f5dfb54336ab3738003f95f6b7",
     path: "/profile",
-    title: "Profil Pengguna - IndustrialX",
+    title: "Profil Pengguna - MesinBagus",
   },
 ] as const;
 

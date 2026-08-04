@@ -1,10 +1,19 @@
-import { withAuth } from "next-auth/middleware";
 import { NextResponse } from "next/server";
+import type { NextRequest } from "next/server";
+import { getToken } from "next-auth/jwt";
+import { ADMIN_SESSION_COOKIE, STOREFRONT_SESSION_COOKIE } from "@/lib/auth-cookies";
 
-export default withAuth(
-  function proxy(req) {
-    const role = req.nextauth.token?.role as string | undefined;
-    const path = req.nextUrl.pathname;
+export async function proxy(req: NextRequest) {
+  const path = req.nextUrl.pathname;
+  const secret = process.env.AUTH_SECRET;
+
+  if (path.startsWith("/admin")) {
+    const adminToken = await getToken({
+      req,
+      secret,
+      cookieName: ADMIN_SESSION_COOKIE,
+    });
+    const role = adminToken?.role as string | undefined;
 
     if (path === "/admin/login") {
       if (role === "ADMIN" || role === "SUPERADMIN") {
@@ -13,39 +22,34 @@ export default withAuth(
       return NextResponse.next();
     }
 
-    if (path.startsWith("/admin")) {
-      if (role !== "ADMIN" && role !== "SUPERADMIN") {
-        return NextResponse.redirect(new URL("/admin/login", req.url));
-      }
-      if (path.startsWith("/admin/users") && role !== "SUPERADMIN") {
-        return NextResponse.redirect(new URL("/admin/dashboard", req.url));
-      }
+    if (!adminToken || (role !== "ADMIN" && role !== "SUPERADMIN")) {
+      return NextResponse.redirect(new URL("/admin/login", req.url));
     }
+    if (path.startsWith("/admin/users") && role !== "SUPERADMIN") {
+      return NextResponse.redirect(new URL("/admin/dashboard", req.url));
+    }
+    return NextResponse.next();
+  }
 
-    if (path.startsWith("/profile/") && path !== "/profile/privacy" && !req.nextauth.token) {
+  const publicProfilePaths = [
+    "/profile/privacy",
+    "/profile/forgot-password",
+    "/profile/reset-password",
+    "/profile/invite",
+  ];
+  if (path.startsWith("/profile/") && !publicProfilePaths.includes(path)) {
+    const storefrontToken = await getToken({
+      req,
+      secret,
+      cookieName: STOREFRONT_SESSION_COOKIE,
+    });
+    if (!storefrontToken) {
       return NextResponse.redirect(new URL("/profile", req.url));
     }
-
-    return NextResponse.next();
-  },
-  {
-    callbacks: {
-      authorized: ({ token, req }) => {
-        const path = req.nextUrl.pathname;
-        if (path === "/admin/login") {
-          return true;
-        }
-        if (path.startsWith("/admin")) {
-          return Boolean(token);
-        }
-        if (path.startsWith("/profile")) {
-          return true;
-        }
-        return true;
-      },
-    },
   }
-);
+
+  return NextResponse.next();
+}
 
 export const config = {
   matcher: ["/admin/:path*", "/profile/:path*"],

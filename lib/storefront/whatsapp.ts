@@ -13,6 +13,8 @@ export type PoQuotationOptions = {
   voltage?: string;
   quantity?: number;
   company?: string;
+  poUrl?: string;
+  orderNumber?: string;
 };
 
 /** Template PO / quotation — English, selaras Review PO & CTWA. */
@@ -22,10 +24,16 @@ export function buildPoQuotationMessage({
   voltage = "380V / 3 Phase",
   quantity = 1,
   company = "Global Food Processing Ltd.",
+  poUrl,
+  orderNumber,
 }: PoQuotationOptions): string {
   const origin = resolveAppOrigin(appUrl);
   const link = `${origin}/products/${product.id}`;
-  const poLink = `${origin}/po-preview/pdf?product=${encodeURIComponent(product.id)}`;
+  const poLink = poUrl
+    ? poUrl.startsWith("http")
+      ? poUrl
+      : `${origin}${poUrl.startsWith("/") ? "" : "/"}${poUrl}`
+    : `${origin}/po-preview/pdf?product=${encodeURIComponent(product.id)}`;
   const unitLabel = quantity === 1 ? "Unit" : "Units";
 
   return `Hello MesinBagus Team,
@@ -34,6 +42,7 @@ I am interested in requesting a quotation for:
 *Product:* ${product.name} (${product.sku})
 *Voltage:* ${voltage}
 *Quantity:* ${quantity} ${unitLabel}
+${orderNumber ? `*PO Number:* ${orderNumber}\n` : ""}
 
 *Company:* ${company}
 *Link:* ${link}

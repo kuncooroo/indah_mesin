@@ -10,10 +10,8 @@ datasource db {
 // 1. ENUMERATIONS
 // ==========================================
 
-enum Role {
-  BUYER
-  PURCHASING
-  APPROVER
+/// Role hanya untuk akun panel admin (tabel Admin).
+enum AdminRole {
   ADMIN
   SUPERADMIN
 }
@@ -78,6 +76,7 @@ model Company {
   users     User[]
   addresses CompanyAddress[]
   orders    Order[]
+  invites   TeamInvite[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -102,7 +101,7 @@ model CompanyAddress {
 }
 
 // ==========================================
-// 3. USER MANAGEMENT (PIC)
+// 3. USER (storefront / pembeli) & ADMIN (panel)
 // ==========================================
 
 model User {
@@ -118,7 +117,6 @@ model User {
   companyId          String?
   company            Company?           @relation(fields: [companyId], references: [id], onDelete: SetNull)
 
-  role               Role               @default(BUYER)
   verificationStatus VerificationStatus @default(UNVERIFIED)
 
   /// Legacy — prefer `company` relation
@@ -132,12 +130,59 @@ model User {
   orders             Order[]
   archiveDocuments   ArchiveDocument[]
   activityLogs       ActivityLog[]
+  passwordResets     PasswordResetToken[]
 
   createdAt          DateTime           @default(now())
   updatedAt          DateTime           @updatedAt
 
   @@index([companyId])
+}
+
+/// Akun panel admin — terpisah dari User storefront.
+model Admin {
+  id        String    @id @default(uuid())
+  username  String?   @unique
+  name      String
+  email     String    @unique
+  password  String
+  avatar    String?   @db.Text
+  role      AdminRole @default(ADMIN)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
   @@index([role])
+}
+
+model PasswordResetToken {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  token     String   @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@index([expiresAt])
+}
+
+model TeamInvite {
+  id        String    @id @default(uuid())
+  companyId String
+  company   Company   @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  invitedBy String
+  name      String
+  email     String
+  phone     String?
+  position  String?
+  token     String    @unique
+  acceptedAt DateTime?
+  expiresAt DateTime
+  createdAt DateTime  @default(now())
+
+  @@index([companyId])
+  @@index([email])
 }
 
 // ==========================================
@@ -410,6 +455,8 @@ model SiteSetting {
   headOfficeLines    Json?
   showroomTitle      String?
   showroomLines      Json?
+  /// false = sembunyikan /admin/login (kecuali access key / sudah login admin)
+  adminLoginVisible  Boolean @default(true)
 }
 
 model QuickFilter {

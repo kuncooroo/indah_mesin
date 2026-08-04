@@ -3,13 +3,13 @@
 import bcrypt from "bcrypt";
 import { revalidatePath } from "next/cache";
 import { getServerSession } from "next-auth";
-import { authOptions, isAdminRole } from "@/lib/auth";
+import { getAdminSession, isAdminRole } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import type { Role, RfqStatus, StockStatus, OrderStatus, CompanyType, ArchiveDocumentType } from "@prisma/client";
+import type { AdminRole, RfqStatus, StockStatus, OrderStatus, CompanyType, ArchiveDocumentType } from "@prisma/client";
 import { Prisma } from "@prisma/client";
 
 async function requireAdmin() {
-  const session = await getServerSession(authOptions);
+  const session = await getAdminSession();
   if (!session?.user || !isAdminRole(session.user.role)) {
     throw new Error("Unauthorized");
   }
@@ -246,13 +246,13 @@ export async function createUser(formData: FormData) {
   if (!username || password.length < 6) throw new Error("Username dan password (min 6) wajib");
 
   const hash = await bcrypt.hash(password, 10);
-  await prisma.user.create({
+  await prisma.admin.create({
     data: {
       username,
       email,
       password: hash,
       name: String(formData.get("name") ?? "") || username,
-      role: String(formData.get("role") ?? "ADMIN") as Role,
+      role: String(formData.get("role") ?? "ADMIN") as AdminRole,
     },
   });
   revalidatePath("/admin/users");
@@ -271,9 +271,9 @@ export async function updateCustomer(formData: FormData) {
       email: String(formData.get("email") ?? "") || undefined,
       phone: String(formData.get("phone") ?? "") || null,
       companyId: String(formData.get("companyId") ?? "") || null,
-      role: (String(formData.get("role") ?? "BUYER") as Role) || undefined,
       companyName: String(formData.get("companyName") ?? "") || null,
       customBuyerId: String(formData.get("customBuyerId") ?? "") || null,
+      position: String(formData.get("position") ?? "") || null,
       verificationStatus: verified ? "VERIFIED" : "UNVERIFIED",
     },
   });
@@ -283,7 +283,7 @@ export async function updateCustomer(formData: FormData) {
 export async function deleteCustomer(id: string) {
   await requireAdmin();
   const user = await prisma.user.findFirst({
-    where: { id, role: { in: ["BUYER", "PURCHASING", "APPROVER"] } },
+    where: { id },
   });
   if (!user) throw new Error("Pelanggan tidak ditemukan");
   await prisma.user.delete({ where: { id } });
@@ -293,7 +293,7 @@ export async function deleteCustomer(id: string) {
 export async function deleteUser(id: string) {
   const session = await requireSuperAdmin();
   if (session.user.id === id) throw new Error("Tidak dapat menghapus akun sendiri");
-  await prisma.user.delete({ where: { id } });
+  await prisma.admin.delete({ where: { id } });
   revalidatePath("/admin/users");
   revalidatePath("/admin/companies");
 }

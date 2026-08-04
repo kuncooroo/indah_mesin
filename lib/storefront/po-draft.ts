@@ -3,9 +3,16 @@ import type { Product } from "@/lib/storefront/product-types";
 export type PoDraft = {
   voltage: string;
   quantity: number;
-  picName: string;
-  companyName: string;
+  requestId?: string;
+};
+
+export type PoBuyerIdentity = {
+  name: string;
+  email: string;
   phone: string;
+  companyName: string;
+  npwpNumber: string;
+  nibNumber: string;
   address: string;
 };
 
@@ -14,11 +21,6 @@ const STORAGE_KEY = "indah_mesin_po_draft_v1";
 export const DEFAULT_PO_DRAFT: PoDraft = {
   voltage: "380V / 3 Phase",
   quantity: 1,
-  picName: "John Doe",
-  companyName: "Global Food Processing Ltd.",
-  phone: "+62 818 0892 5555",
-  address:
-    "Jalan Raya Randugading No.137 RT 12 RW 03 Kel. Randugading Kec. Tajinan, Rambaan, Randugading, Kec. Tajinan, Kabupaten Malang, Jawa Timur 65172",
 };
 
 export function defaultVoltageForProduct(product?: Product): string {

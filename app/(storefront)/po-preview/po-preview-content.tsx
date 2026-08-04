@@ -13,6 +13,8 @@ import {
 import {
   defaultVoltageForProduct,
   readPoDraft,
+  writePoDraft,
+  type PoBuyerIdentity,
   type PoDraft,
 } from "@/lib/storefront/po-draft";
 import { StorefrontMobileFixedBar } from "@/components/storefront/layout/mobile-fixed-bar";
@@ -28,7 +30,18 @@ function WaIcon() {
   );
 }
 
-export function PoPreviewContent({ poProduct }: { poProduct?: Product }) {
+type SubmittedPo = {
+  orderNumber: string;
+  documentUrl: string;
+};
+
+export function PoPreviewContent({
+  poProduct,
+  buyer,
+}: {
+  poProduct?: Product;
+  buyer: PoBuyerIdentity;
+}) {
   const backHref = poProduct ? `/products/${poProduct.id}` : "/beranda-artikel";
 
   const productForMessage = useMemo(
@@ -46,6 +59,9 @@ export function PoPreviewContent({ poProduct }: { poProduct?: Product }) {
   const [appUrl, setAppUrl] = useState(
     () => process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000"
   );
+  const [sending, setSending] = useState(false);
+  const [sendError, setSendError] = useState("");
+  const [submittedPo, setSubmittedPo] = useState<SubmittedPo | null>(null);
 
   const productId = productForMessage.id;
 
@@ -53,10 +69,15 @@ export function PoPreviewContent({ poProduct }: { poProduct?: Product }) {
     const timeoutId = window.setTimeout(() => {
       setAppUrl(resolveAppOrigin());
       const saved = readPoDraft(productId);
-      setDraft({
+      const nextDraft = {
         ...saved,
         voltage: saved.voltage || defaultVoltageForProduct(poProduct),
-      });
+        requestId: saved.requestId ?? crypto.randomUUID(),
+      };
+      setDraft(nextDraft);
+      if (!saved.requestId) {
+        writePoDraft(nextDraft, productId);
+      }
     });
     return () => window.clearTimeout(timeoutId);
   }, [productId, poProduct]);
@@ -68,11 +89,10 @@ export function PoPreviewContent({ poProduct }: { poProduct?: Product }) {
       appUrl,
       voltage: draft.voltage,
       quantity: draft.quantity,
-      company: draft.companyName,
+      company: buyer.companyName,
     });
-  }, [appUrl, draft, productForMessage]);
+  }, [appUrl, buyer.companyName, draft, productForMessage]);
 
-  const waHref = buildWhatsAppUrlFromText(messagePreview);
   const pdfHref = poProduct
     ? `/po-preview/pdf?product=${encodeURIComponent(poProduct.id)}`
     : "/po-preview/pdf";
@@ -82,6 +102,64 @@ export function PoPreviewContent({ poProduct }: { poProduct?: Product }) {
 
   const heroImage = poProduct?.image || PO_PREVIEW_IMAGE;
   const statusLabel = poProduct?.statusLabel ?? "Ready Stock";
+
+  async function sendToWhatsApp() {
+    if (!draft || sending || submittedPo) return;
+    const popup = window.open("about:blank", "_blank");
+    if (popup) popup.opener = null;
+    setSending(true);
+    setSendError("");
+    try {
+      const response = await fetch("/api/po/submit", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          productId: productForMessage.id,
+          quantity: draft.quantity,
+          voltage: draft.voltage,
+          requestId: draft.requestId,
+        }),
+      });
+      const result = (await response.json()) as SubmittedPo & {
+        error?: string;
+        completionPath?: string | null;
+      };
+      if (response.status === 401) {
+        popup?.close();
+        window.location.assign("/profile");
+        return;
+      }
+      if (response.status === 422 && result.completionPath) {
+        popup?.close();
+        window.location.assign(result.completionPath);
+        return;
+      }
+      if (!response.ok) throw new Error(result.error ?? "Gagal menyimpan Purchase Order.");
+
+      const whatsappUrl = buildWhatsAppUrlFromText(
+        buildPoQuotationMessage({
+          product: productForMessage,
+          appUrl,
+          voltage: draft.voltage,
+          quantity: draft.quantity,
+          company: buyer.companyName,
+          poUrl: result.documentUrl,
+          orderNumber: result.orderNumber,
+        })
+      );
+      setSubmittedPo(result);
+      if (popup) {
+        popup.location.href = whatsappUrl;
+      } else {
+        window.location.assign(whatsappUrl);
+      }
+    } catch (reason) {
+      popup?.close();
+      setSendError(reason instanceof Error ? reason.message : "Gagal mengirim Purchase Order.");
+    } finally {
+      setSending(false);
+    }
+  }
 
   return (
     <>
@@ -148,15 +226,15 @@ export function PoPreviewContent({ poProduct }: { poProduct?: Product }) {
               Company Information
             </h3>
             <div className="space-y-3">
-              {draft &&
-                (
-                  [
-                    ["Your Name (PIC)", draft.picName],
-                    ["Company Name (Nama Usaha)", draft.companyName],
-                    ["Phone Number", draft.phone],
-                    ["Company Address", draft.address],
-                  ] as const
-                ).map(([label, value]) => (
+              {(
+                [
+                  ["Your Name (PIC)", buyer.name],
+                  ["Company Name (Nama Usaha)", buyer.companyName],
+                  ["Phone Number", buyer.phone],
+                  ["Company Address", buyer.address],
+                  ["NPWP / NIB", `${buyer.npwpNumber} / ${buyer.nibNumber}`],
+                ] as const
+              ).map(([label, value]) => (
                   <div key={label}>
                     <label className="text-xs font-bold uppercase tracking-tighter text-on-surface-variant">
                       {label}
@@ -218,21 +296,50 @@ export function PoPreviewContent({ poProduct }: { poProduct?: Product }) {
             Download Purchase Order (PDF)
           </Link>
         </div>
+
+        {submittedPo ? (
+          <section className="rounded-xl border border-status-ready/30 bg-secondary-container/30 p-4">
+            <div className="flex items-start gap-3">
+              <MaterialSymbol name="check_circle" className="text-status-ready" />
+              <div>
+                <p className="font-semibold text-on-surface">
+                  {submittedPo.orderNumber} berhasil disimpan
+                </p>
+                <p className="mt-1 text-body-sm text-on-surface-variant">
+                  Purchase Order sudah tersedia di My Orders dan My Docs.
+                </p>
+                <div className="mt-3 flex gap-4 text-body-sm font-semibold text-primary">
+                  <Link href="/profile/orders">My Orders</Link>
+                  <Link href="/profile/docs">My Docs</Link>
+                </div>
+              </div>
+            </div>
+          </section>
+        ) : null}
+        {sendError ? (
+          <p role="alert" className="rounded-xl bg-error-container p-4 text-on-error-container">
+            {sendError}
+          </p>
+        ) : null}
       </main>
 
       <StorefrontMobileFixedBar
         bottomClass="bottom-0"
         className="sticky-cta-shadow bg-surface/80 p-4 backdrop-blur-md"
       >
-        <a
-          href={waHref}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="flex w-full items-center justify-center gap-3 rounded-full bg-[#25D366] px-6 py-4 font-button-text text-white shadow-lg transition-transform active:scale-95 hover:bg-[#20bd5c]"
+        <button
+          type="button"
+          onClick={sendToWhatsApp}
+          disabled={!draft || sending || Boolean(submittedPo)}
+          className="flex w-full items-center justify-center gap-3 rounded-full bg-[#25D366] px-6 py-4 font-button-text text-white shadow-lg transition-transform active:scale-95 hover:bg-[#20bd5c] disabled:cursor-not-allowed disabled:opacity-60"
         >
           <WaIcon />
-          Send Request to WhatsApp
-        </a>
+          {submittedPo
+            ? "Request Saved"
+            : sending
+              ? "Saving Purchase Order…"
+              : "Send Request to WhatsApp"}
+        </button>
       </StorefrontMobileFixedBar>
     </>
   );

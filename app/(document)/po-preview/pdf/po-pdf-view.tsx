@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useRef, useState } from "react";
 import { MaterialSymbol } from "@/components/ui/material-symbol";
-import { hasPoDraft, readPoDraft } from "@/lib/storefront/po-draft";
+import { readPoDraft } from "@/lib/storefront/po-draft";
 
 export type PoDocumentData = {
   authenticatedBuyer: boolean;
@@ -17,6 +17,12 @@ export type PoDocumentData = {
   buyerAddress: string;
   buyerEmail: string;
   buyerPhone: string;
+  buyerNpwp?: string;
+  buyerNib?: string;
+  quantity?: number;
+  voltage?: string;
+  orderNumber?: string;
+  issuedAt?: string;
 };
 
 function escapePdfText(value: string) {
@@ -111,9 +117,17 @@ export function PoPdfToolbar({
     const frameDocument = iframeRef.current?.contentDocument;
     if (!frameDocument) return;
     const draft = readPoDraft(documentData.productId);
-    const savedDraftExists =
-      hasPoDraft(documentData.productId) && !documentData.authenticatedBuyer;
-    const quantity = Math.max(1, draft.quantity || 1);
+    const quantity = Math.max(1, documentData.quantity ?? draft.quantity ?? 1);
+    const voltage = documentData.voltage ?? draft.voltage;
+    const issuedAt = documentData.issuedAt ? new Date(documentData.issuedAt) : new Date();
+    const issuedLabel = new Intl.DateTimeFormat("id-ID", {
+      day: "numeric",
+      month: "long",
+      year: "numeric",
+    }).format(issuedAt);
+    const orderNumber =
+      documentData.orderNumber ??
+      `DRAFT-${issuedAt.toISOString().slice(0, 10).replace(/-/g, "")}-${documentData.productSku.slice(0, 6)}`;
     const formattedTotal = documentData.unitPrice
       ? new Intl.NumberFormat("id-ID", {
           style: "currency",
@@ -122,21 +136,26 @@ export function PoPdfToolbar({
         }).format(documentData.unitPrice * quantity)
       : documentData.priceLabel;
     const values: Record<string, string> = {
-      "po-buyer-company": savedDraftExists ? draft.companyName : documentData.buyerCompany,
-      "po-buyer-name": `Attn: ${savedDraftExists ? draft.picName : documentData.buyerName}`,
-      "po-buyer-address": savedDraftExists ? draft.address : documentData.buyerAddress,
-      "po-buyer-email": documentData.buyerEmail,
-      "po-buyer-phone": savedDraftExists ? draft.phone : documentData.buyerPhone,
+      "po-number": orderNumber,
+      "po-date": issuedLabel,
+      "po-ref": orderNumber,
+      "po-buyer-company": documentData.buyerCompany || "—",
+      "po-buyer-name": `Attn: ${documentData.buyerName || "—"}`,
+      "po-buyer-npwp": `NPWP: ${documentData.buyerNpwp || "—"}`,
+      "po-buyer-nib": `NIB: ${documentData.buyerNib || "—"}`,
+      "po-buyer-address": documentData.buyerAddress || "—",
+      "po-buyer-email": documentData.buyerEmail || "—",
+      "po-buyer-phone": documentData.buyerPhone || "—",
       "po-product-sku": documentData.productSku,
       "po-product-name": documentData.productName,
-      "po-product-variant": `Voltage: ${draft.voltage}`,
+      "po-product-variant": `Voltage: ${voltage}`,
       "po-product-quantity": `${quantity} Unit${quantity > 1 ? "s" : ""}`,
       "po-product-price": documentData.priceLabel,
       "po-product-total": formattedTotal,
       "po-subtotal": formattedTotal,
       "po-grand-total": formattedTotal,
-      "po-signature-name": savedDraftExists ? draft.picName : documentData.buyerName,
-      "po-signature-company": savedDraftExists ? draft.companyName : documentData.buyerCompany,
+      "po-signature-name": documentData.buyerName || "—",
+      "po-signature-company": documentData.buyerCompany || "—",
     };
     Object.entries(values).forEach(([id, value]) => {
       const element = frameDocument.getElementById(id);
@@ -151,7 +170,7 @@ export function PoPdfToolbar({
     const url = URL.createObjectURL(createPdfBlob(documentText));
     const anchor = document.createElement("a");
     anchor.href = url;
-    anchor.download = `MesinBagus-Purchase-Order-${new Date().toISOString().slice(0, 10)}.pdf`;
+    anchor.download = `MesinBagus-${documentData.orderNumber ?? "Purchase-Order"}-${new Date().toISOString().slice(0, 10)}.pdf`;
     anchor.click();
     window.setTimeout(() => {
       URL.revokeObjectURL(url);

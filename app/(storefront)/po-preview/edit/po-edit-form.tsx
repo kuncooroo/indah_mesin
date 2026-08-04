@@ -10,10 +10,17 @@ import {
   defaultVoltageForProduct,
   readPoDraft,
   writePoDraft,
+  type PoBuyerIdentity,
   type PoDraft,
 } from "@/lib/storefront/po-draft";
 
-export function PoEditForm({ product }: { product: Product }) {
+export function PoEditForm({
+  product,
+  buyer,
+}: {
+  product: Product;
+  buyer: PoBuyerIdentity;
+}) {
   const router = useRouter();
   const [draft, setDraft] = useState<PoDraft>({
     ...DEFAULT_PO_DRAFT,
@@ -23,10 +30,13 @@ export function PoEditForm({ product }: { product: Product }) {
   useEffect(() => {
     const timeoutId = window.setTimeout(() => {
       const saved = readPoDraft(product.id);
-      setDraft({
+      const nextDraft = {
         ...saved,
         voltage: saved.voltage || defaultVoltageForProduct(product),
-      });
+        requestId: saved.requestId ?? crypto.randomUUID(),
+      };
+      setDraft(nextDraft);
+      if (!saved.requestId) writePoDraft(nextDraft, product.id);
     });
     return () => window.clearTimeout(timeoutId);
   }, [product]);
@@ -37,7 +47,10 @@ export function PoEditForm({ product }: { product: Product }) {
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    writePoDraft(draft, product.id);
+    writePoDraft(
+      { ...draft, requestId: draft.requestId ?? crypto.randomUUID() },
+      product.id
+    );
     router.push(`/po-preview?product=${encodeURIComponent(product.id)}`);
   }
 
@@ -90,43 +103,43 @@ export function PoEditForm({ product }: { product: Product }) {
         </section>
 
         <section className="space-y-4 rounded-lg border border-border-subtle bg-white p-6">
-          <h2 className="flex items-center gap-2 font-button-text text-primary">
-            <MaterialSymbol name="corporate_fare" />
-            Company Information
-          </h2>
-          {(
-            [
-              ["picName", "Your Name (PIC)"],
-              ["companyName", "Company Name"],
-              ["phone", "Phone Number"],
-              ["address", "Company Address"],
-            ] as const
-          ).map(([key, label]) => (
-            <label key={key} className="block">
+          <div className="flex items-center justify-between gap-3">
+            <h2 className="flex items-center gap-2 font-button-text text-primary">
+              <MaterialSymbol name="corporate_fare" />
+              Company Information
+            </h2>
+            <Link href="/profile/business" className="text-body-sm font-semibold text-primary">
+              Edit Business Identity
+            </Link>
+          </div>
+          {[
+            ["Your Name (PIC)", buyer.name],
+            ["Company Name", buyer.companyName],
+            ["Phone Number", buyer.phone],
+            ["Company Address", buyer.address],
+            ["NPWP / NIB", `${buyer.npwpNumber} / ${buyer.nibNumber}`],
+          ].map(([label, value]) => (
+            <div key={label}>
               <span className="text-xs font-bold uppercase text-on-surface-variant">{label}</span>
-              {key === "address" ? (
-                <textarea
-                  rows={3}
-                  className="mt-1 w-full rounded-lg border border-border-subtle px-3 py-2 text-body-md focus:border-primary focus:ring-2 focus:ring-primary/20"
-                  value={draft[key]}
-                  onChange={(e) => update(key, e.target.value)}
-                  required
-                />
-              ) : (
-                <input
-                  className="mt-1 w-full rounded-lg border border-border-subtle px-3 py-2 text-body-md focus:border-primary focus:ring-2 focus:ring-primary/20"
-                  value={draft[key]}
-                  onChange={(e) => update(key, e.target.value)}
-                  required
-                />
-              )}
-            </label>
+              <p className="mt-1 border-b border-dashed border-outline-variant py-2 text-body-md">
+                {value}
+              </p>
+            </div>
           ))}
+          <p className="text-xs text-on-surface-variant">
+            Data ini diambil dari akun dan Business Identity agar dokumen PO tetap konsisten.
+          </p>
         </section>
 
         <button
           type="button"
-          onClick={() => setDraft({ ...DEFAULT_PO_DRAFT, voltage: defaultVoltageForProduct(product) })}
+          onClick={() =>
+            setDraft({
+              ...DEFAULT_PO_DRAFT,
+              voltage: defaultVoltageForProduct(product),
+              requestId: draft.requestId ?? crypto.randomUUID(),
+            })
+          }
           className="text-body-sm font-semibold text-primary underline-offset-2 hover:underline"
         >
           Reset to defaults

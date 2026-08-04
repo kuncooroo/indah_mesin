@@ -82,6 +82,18 @@ export const adminModuleRegistry: ModuleMeta[] = [
   },
 
   {
+    key: "customers",
+
+    label: "User tanpa perusahaan",
+
+    adminHref: "/admin/customers",
+
+    shopHref: "/profile",
+
+    stitchScreenTitle: "Akun pembeli tanpa Company",
+  },
+
+  {
     key: "articles",
 
     label: "Artikel",

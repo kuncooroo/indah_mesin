@@ -80,7 +80,7 @@ export function AdminSidebar({ userName, userEmail, isSuperAdmin }: AdminSidebar
     <aside className="flex w-60 shrink-0 flex-col border-r border-neutral-200 bg-white">
       <div className="border-b border-neutral-100 px-5 py-6">
         <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-neutral-400">
-          IndustrialX
+          MesinBagus
         </p>
         <p className="mt-1 text-lg font-bold text-neutral-900">Admin Panel</p>
       </div>
@@ -166,7 +166,7 @@ export function AdminSidebar({ userName, userEmail, isSuperAdmin }: AdminSidebar
         <p className="truncate text-sm font-semibold text-neutral-900">{userName}</p>
         <p className="truncate text-xs text-neutral-500">{userEmail}</p>
         <Link
-          href="/api/auth/signout?callbackUrl=/admin/login"
+          href="/api/admin/auth/signout?callbackUrl=/admin/login"
           className="mt-3 flex w-full items-center justify-center gap-2 rounded-lg border border-neutral-200 bg-neutral-50 px-3 py-2 text-sm font-medium text-neutral-700 transition-colors hover:bg-neutral-100"
         >
           <LogOut className="h-4 w-4" />

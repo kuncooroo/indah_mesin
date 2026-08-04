@@ -22,6 +22,8 @@ import {
 
   Files,
 
+  UserRoundX,
+
 } from "lucide-react";
 
 import type { AdminModuleKey } from "@/types/admin/marketplace-module";
@@ -35,6 +37,8 @@ const iconByKey: Record<AdminModuleKey, LucideIcon> = {
   categories: FolderTree,
 
   companies: Building2,
+
+  customers: UserRoundX,
 
   orders: ClipboardList,
 

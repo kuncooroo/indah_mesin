@@ -1,7 +1,6 @@
 import { redirect } from "next/navigation";
-import { getServerSession } from "next-auth";
 import type { Prisma } from "@prisma/client";
-import { authOptions } from "@/lib/auth";
+import { getAdminSession } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { parseAdminListParams, rowNumber } from "@/lib/admin/list-params";
 import { createUser, deleteUser } from "@/lib/admin-crud";
@@ -22,14 +21,13 @@ type PageProps = {
 };
 
 export default async function AdminUsersPage({ searchParams }: PageProps) {
-  const session = await getServerSession(authOptions);
+  const session = await getAdminSession();
   if (session?.user?.role !== "SUPERADMIN") {
     redirect("/admin/dashboard");
   }
 
   const params = parseAdminListParams(await searchParams);
-  const where: Prisma.UserWhereInput = {
-    role: { in: ["ADMIN", "SUPERADMIN"] },
+  const where: Prisma.AdminWhereInput = {
     ...(params.q
       ? {
           OR: [
@@ -42,8 +40,8 @@ export default async function AdminUsersPage({ searchParams }: PageProps) {
   };
 
   const [total, users] = await Promise.all([
-    prisma.user.count({ where }),
-    prisma.user.findMany({
+    prisma.admin.count({ where }),
+    prisma.admin.findMany({
       where,
       orderBy: { createdAt: "asc" },
       skip: params.skip,

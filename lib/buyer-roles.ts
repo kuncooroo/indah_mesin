@@ -1,4 +1,6 @@
-import type { Role } from "@prisma/client";
+import type { AppRole } from "@/lib/auth";
 
-/** Role akun PIC / pembeli (bukan panel admin). */
-export const buyerRoles: Role[] = ["BUYER", "PURCHASING", "APPROVER"];
+/** Session role untuk pembeli storefront (bukan panel Admin). */
+export function isStorefrontUser(role: AppRole | string | undefined) {
+  return role === "USER";
+}

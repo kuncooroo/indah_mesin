@@ -28,9 +28,14 @@ export async function POST(request: Request) {
     data: {
       name: parsed.data.name,
       companyName: parsed.data.companyName,
+      company: {
+        create: {
+          companyName: parsed.data.companyName,
+          type: "BUYER",
+        },
+      },
       email: parsed.data.email,
       password: await bcrypt.hash(parsed.data.password, 12),
-      role: "BUYER",
     },
   });
   return NextResponse.json({ ok: true }, { status: 201 });

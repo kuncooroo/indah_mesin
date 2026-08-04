@@ -1,7 +1,7 @@
 import "dotenv/config";
 import bcrypt from "bcrypt";
 import { PrismaMariaDb } from "@prisma/adapter-mariadb";
-import { PrismaClient, Role, RfqStatus, VerificationStatus, CompanyType, OrderStatus, ArchiveDocumentType } from "@prisma/client";
+import { PrismaClient, AdminRole, RfqStatus, VerificationStatus, CompanyType, OrderStatus, ArchiveDocumentType } from "@prisma/client";
 import { MARKETPLACE_CATEGORIES, MARKETPLACE_PRODUCTS, MARKETPLACE_SKUS, MARKETPLACE_QUICK_FILTERS, catalogProductToSeedStatus, parseCatalogPriceIdr } from "../lib/storefront/catalog-data";
 import { stitchArticles } from "../lib/storefront/content-data";
 import { indahMesinContact } from "../lib/storefront/contact";
@@ -53,7 +53,7 @@ async function main() {
       name: "Budi Santoso",
       email: "user@indahmesin.com",
       password: passwordHash,
-      role: Role.PURCHASING,
+      position: "Purchasing",
       verificationStatus: VerificationStatus.VERIFIED,
       companyName: "PT. Pangan Makmur Abadi",
       customBuyerId: "25030024",
@@ -64,7 +64,7 @@ async function main() {
       username: "user",
       name: "Budi Santoso",
       password: passwordHash,
-      role: Role.PURCHASING,
+      position: "Purchasing",
       verificationStatus: VerificationStatus.VERIFIED,
       companyName: "PT. Pangan Makmur Abadi",
       customBuyerId: "25030024",
@@ -107,37 +107,44 @@ async function main() {
     data: { companyId: demoCompany.id },
   });
 
-  await prisma.user.upsert({
+  // Pastikan akun admin tidak tersisa di tabel User
+  await prisma.user.deleteMany({
+    where: {
+      email: { in: ["admin@indahmesin.com", "superadmin@indahmesin.com"] },
+    },
+  });
+
+  await prisma.admin.upsert({
     where: { email: "admin@indahmesin.com" },
     create: {
       username: "admin",
       name: "Admin Indah Mesin",
       email: "admin@indahmesin.com",
       password: passwordHash,
-      role: Role.ADMIN,
+      role: AdminRole.ADMIN,
     },
     update: {
       username: "admin",
       name: "Admin Indah Mesin",
       password: passwordHash,
-      role: Role.ADMIN,
+      role: AdminRole.ADMIN,
     },
   });
 
-  await prisma.user.upsert({
+  await prisma.admin.upsert({
     where: { email: "superadmin@indahmesin.com" },
     create: {
       username: "superadmin",
       name: "Super Admin",
       email: "superadmin@indahmesin.com",
       password: passwordHash,
-      role: Role.SUPERADMIN,
+      role: AdminRole.SUPERADMIN,
     },
     update: {
       username: "superadmin",
       name: "Super Admin",
       password: passwordHash,
-      role: Role.SUPERADMIN,
+      role: AdminRole.SUPERADMIN,
     },
   });
 
@@ -473,8 +480,10 @@ async function main() {
   }
 
   console.log("Seed selesai.");
-  console.log(`Users: user / admin / superadmin — password: ${DEFAULT_PASSWORD}`);
-  console.log(`Admin: http://localhost:3000/admin/login → /admin/dashboard`);
+  console.log(`User (tabel User): user@indahmesin.com — password: ${DEFAULT_PASSWORD}`);
+  console.log(`Admin (tabel Admin): admin / admin@indahmesin.com — password: ${DEFAULT_PASSWORD}`);
+  console.log(`Superadmin (tabel Admin): superadmin@indahmesin.com — password: ${DEFAULT_PASSWORD}`);
+  console.log(`Admin panel: http://localhost:3000/admin/login → /admin/dashboard`);
 }
 
 main()

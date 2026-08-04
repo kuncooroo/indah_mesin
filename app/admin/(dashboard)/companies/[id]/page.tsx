@@ -5,7 +5,6 @@ import type { Prisma } from "@prisma/client";
 
 import { prisma } from "@/lib/prisma";
 import { parseAdminListParams, rowNumber, type AdminListParams } from "@/lib/admin/list-params";
-import { buyerRoles } from "@/lib/buyer-roles";
 import {
   updateCompany,
   deleteCompany,
@@ -241,7 +240,6 @@ async function CompanyPicSection({
   q: string;
 }) {
   const where: Prisma.UserWhereInput = {
-    role: { in: buyerRoles },
     companyId,
     ...(q
       ? {
@@ -268,11 +266,11 @@ async function CompanyPicSection({
         name: true,
         email: true,
         phone: true,
-        role: true,
         companyId: true,
         companyName: true,
         customBuyerId: true,
         verificationStatus: true,
+        position: true,
       },
     }),
   ]);
@@ -295,7 +293,7 @@ async function CompanyPicSection({
               <AdminThNo />
               <th className="px-6 py-3 font-medium text-neutral-500">PIC</th>
               <th className="px-6 py-3 font-medium text-neutral-500">Email / WA</th>
-              <th className="px-6 py-3 font-medium text-neutral-500">Role</th>
+              <th className="px-6 py-3 font-medium text-neutral-500">Jabatan</th>
               <th className="px-6 py-3 text-right font-medium text-neutral-500">Aksi</th>
             </tr>
           </thead>
@@ -308,7 +306,7 @@ async function CompanyPicSection({
                   <div>{u.email}</div>
                   <div className="text-neutral-500">{u.phone ?? "—"}</div>
                 </td>
-                <td className="px-6 py-3">{u.role}</td>
+                <td className="px-6 py-3">{u.position ?? "User"}</td>
                 <AdminActionCell>
                   <CustomerEditDialog row={u} companies={companyOptions} updateAction={updateCustomer} />
                   <AdminDeleteButton

@@ -6,7 +6,10 @@ import { ModuleSummaryTable } from "@/components/admin/admin-module-summary-tabl
 import { AdminDashboardInsights } from "@/components/admin/admin-dashboard-insights";
 import { AdminPageHeader } from "@/components/admin/admin-page-header";
 import { AdminListShell } from "@/components/admin/admin-list-shell";
+import { AdminLoginVisibilityToggle } from "@/components/admin/admin-login-visibility-toggle";
 import { parseAdminListParams } from "@/lib/admin/list-params";
+import { getAdminSession } from "@/lib/auth";
+import { prisma } from "@/lib/prisma";
 
 type PageProps = {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
@@ -14,10 +17,14 @@ type PageProps = {
 
 export default async function AdminDashboardPage({ searchParams }: PageProps) {
   const params = parseAdminListParams(await searchParams);
-  const [modules, insights] = await Promise.all([
+  const [modules, insights, session, settings] = await Promise.all([
     getAdminDashboardSummary(),
     getAdminDashboardInsights(),
+    getAdminSession(),
+    prisma.siteSetting.findUnique({ where: { id: "default" } }),
   ]);
+  const isSuper = session?.user?.role === "SUPERADMIN";
+  const adminLoginVisible = settings?.adminLoginVisible ?? true;
 
   let filtered = modules;
   if (params.q) {
@@ -39,6 +46,7 @@ export default async function AdminDashboardPage({ searchParams }: PageProps) {
         title="Dashboard"
         description="Ringkasan modul — search & pagination."
       />
+      {isSuper ? <AdminLoginVisibilityToggle visible={adminLoginVisible} /> : null}
       <AdminDashboardInsights data={insights} />
       <AdminListShell
         basePath="/admin/dashboard"

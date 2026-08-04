@@ -22,7 +22,7 @@ type NavItem = {
   match: (path: string) => boolean;
 };
 
-const NAV_ITEMS: NavItem[] = [
+const PUBLIC_NAV_ITEMS: NavItem[] = [
   {
     href: "/beranda-artikel",
     label: "Home",
@@ -47,6 +47,9 @@ const NAV_ITEMS: NavItem[] = [
     icon: "chat_bubble",
     match: (p) => p === "/contact",
   },
+];
+
+const PROFILE_NAV_ITEMS: NavItem[] = [
   {
     href: "/profile/orders",
     label: "My Orders",
@@ -66,6 +69,12 @@ const NAV_ITEMS: NavItem[] = [
     match: (p) => p === "/profile/settings",
   },
   {
+    href: "/profile/business",
+    label: "Business Identity",
+    icon: "corporate_fare",
+    match: (p) => p === "/profile/business",
+  },
+  {
     href: "/profile/help",
     label: "Help Center / Support",
     icon: "help",
@@ -76,6 +85,30 @@ const NAV_ITEMS: NavItem[] = [
     label: "Privacy Policy",
     icon: "policy",
     match: (p) => p === "/profile/privacy",
+  },
+];
+
+const ADMIN_NAV_ITEMS: NavItem[] = [
+  {
+    href: "/admin/dashboard",
+    label: "Admin Dashboard",
+    icon: "dashboard",
+    match: (p) => p === "/admin" || p === "/admin/dashboard",
+  },
+  {
+    href: "/admin/companies",
+    label: "Manage Companies",
+    icon: "domain",
+    match: (p) => p.startsWith("/admin/companies"),
+  },
+];
+
+const SUPERADMIN_NAV_ITEMS: NavItem[] = [
+  {
+    href: "/admin/users",
+    label: "Manage Admin Users",
+    icon: "admin_panel_settings",
+    match: (p) => p.startsWith("/admin/users"),
   },
 ];
 
@@ -174,6 +207,16 @@ function ShopNavDrawerPanel() {
     .join("")
     .toUpperCase();
   const memberId = user?.username || user?.id?.slice(0, 8).toUpperCase();
+  const isAdmin = user?.role === "ADMIN" || user?.role === "SUPERADMIN";
+  const navItems = [
+    ...PUBLIC_NAV_ITEMS,
+    ...(isAdmin
+      ? [
+          ...ADMIN_NAV_ITEMS,
+          ...(user?.role === "SUPERADMIN" ? SUPERADMIN_NAV_ITEMS : []),
+        ]
+      : PROFILE_NAV_ITEMS),
+  ];
 
   return (
     <div className="pointer-events-none fixed inset-0 z-[60] mx-auto h-dvh w-full max-w-[430px] overflow-hidden">
@@ -234,7 +277,7 @@ function ShopNavDrawerPanel() {
 
         <div className="flex-1 overflow-y-auto py-4">
           <nav className="space-y-1 px-2">
-            {NAV_ITEMS.map(({ href, label, icon, match }) => {
+            {navItems.map(({ href, label, icon, match }) => {
               const active = match(pathname);
               return (
                 <Link

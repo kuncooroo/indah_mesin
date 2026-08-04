@@ -113,7 +113,9 @@ export default function ProfileDocsPage() {
                   </div>
                   <a
                     href={doc.fileUrl}
-                    download
+                    download={doc.category === "po" ? undefined : true}
+                    target={doc.category === "po" ? "_blank" : undefined}
+                    rel={doc.category === "po" ? "noopener noreferrer" : undefined}
                     className="ml-2 flex h-10 w-10 items-center justify-center rounded-full text-primary transition-colors hover:bg-primary-container/10"
                     aria-label={`Download ${doc.name}`}
                   >
