@@ -1,10 +1,10 @@
 import Image from "next/image";
 import Link from "next/link";
-import { getServerSession } from "next-auth";
 import { Suspense } from "react";
 
 import { ProfileLogoutButton } from "@/components/storefront/profile/profile-logout-button";
 import { ProfileAuthPanel } from "@/components/storefront/profile/profile-auth-panel";
+import { ProfileSavedToast } from "@/components/storefront/profile/profile-saved-toast";
 import { ProfileSettingsHeader } from "@/components/storefront/profile/profile-settings-header";
 import { MaterialSymbol } from "@/components/ui/material-symbol";
 import { getStorefrontSession } from "@/lib/auth";
@@ -14,7 +14,7 @@ function AuthPanelFallback() {
   return (
     <main className="bg-background pb-0 pt-8">
       <div className="mx-auto flex w-full max-w-md flex-col px-margin-mobile py-16 text-center text-on-surface-variant">
-        Memuat formulir masuk…
+        Loading sign-in form…
       </div>
     </main>
   );
@@ -45,7 +45,7 @@ export default async function ProfilePage() {
       </Suspense>
     );
   }
-  const company = dbUser.company?.companyName ?? dbUser.companyName ?? "Pembeli independen";
+  const company = dbUser.company?.companyName ?? dbUser.companyName ?? "Independent buyer";
   const businessIncomplete =
     !dbUser.company?.npwpNumber ||
     !dbUser.company?.nibNumber ||
@@ -60,6 +60,9 @@ export default async function ProfilePage() {
   return (
     <>
       <ProfileSettingsHeader backHref="/beranda-artikel" title="Profile" />
+      <Suspense fallback={null}>
+        <ProfileSavedToast />
+      </Suspense>
       <main className="min-h-screen bg-background pt-16">
         <div className="flex w-full flex-col pb-8">
           <section className="flex flex-col items-center bg-gradient-to-b from-primary/5 to-transparent px-margin-mobile py-8 text-center">
@@ -103,7 +106,7 @@ export default async function ProfilePage() {
             >
               <MaterialSymbol name="info" className="text-status-indent" />
               <p className="font-body-sm text-body-sm text-on-surface-variant">
-                Lengkapi data legalitas &amp; alamat PT untuk mulai transaksi PO
+                Complete legal identity &amp; company address to start PO transactions
               </p>
             </Link>
           ) : null}
@@ -118,7 +121,7 @@ export default async function ProfilePage() {
               </div>
               <span className="font-button-text text-button-text text-on-surface">MY ORDERS</span>
               <span className="mt-1 font-label-technical text-label-technical text-primary">
-                {dbUser._count.orders} PO Diproses
+                {dbUser._count.orders} POs processed
               </span>
             </Link>
             <Link
@@ -130,7 +133,7 @@ export default async function ProfilePage() {
               </div>
               <span className="font-button-text text-button-text text-on-surface">MY DOCS</span>
               <span className="mt-1 font-label-technical text-label-technical text-primary">
-                {dbUser._count.archiveDocuments} File PDF
+                {dbUser._count.archiveDocuments} PDF files
               </span>
             </Link>
           </section>
@@ -148,7 +151,7 @@ export default async function ProfilePage() {
                   Account Settings
                 </div>
                 <div className="line-clamp-1 font-body-sm text-body-sm text-on-surface-variant">
-                  Atur foto, nama, telepon, dan password
+                  Manage photo, name, phone, and password
                 </div>
               </div>
               <MaterialSymbol name="chevron_right" className="text-outline" />
@@ -163,10 +166,10 @@ export default async function ProfilePage() {
               </div>
               <div className="ml-4 flex-1">
                 <div className="font-button-text text-button-text text-on-surface">
-                  Profil Perusahaan
+                  Company Profile
                 </div>
                 <div className="line-clamp-1 font-body-sm text-body-sm text-on-surface-variant">
-                  Detail legalitas, NPWP, NIB, dan alamat kantor
+                  Legal details, NPWP, NIB, and office address
                 </div>
               </div>
               <MaterialSymbol name="chevron_right" className="text-outline" />
@@ -184,7 +187,7 @@ export default async function ProfilePage() {
                   Help Center / Support
                 </div>
                 <div className="font-body-sm text-body-sm text-on-surface-variant">
-                  Pusat Bantuan &amp; CS
+                  Help desk &amp; customer support
                 </div>
               </div>
               <MaterialSymbol name="chevron_right" className="text-outline" />
@@ -200,7 +203,7 @@ export default async function ProfilePage() {
               <div className="ml-4 flex-1">
                 <div className="font-button-text text-button-text text-on-surface">Privacy Policy</div>
                 <div className="font-body-sm text-body-sm text-on-surface-variant">
-                  Kebijakan Privasi
+                  Privacy &amp; data policy
                 </div>
               </div>
               <MaterialSymbol name="chevron_right" className="text-outline" />

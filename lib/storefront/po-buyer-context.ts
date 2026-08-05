@@ -66,14 +66,14 @@ export async function getPoBuyerContext(userId: string): Promise<PoBuyerContext 
   const phone = user.phone?.trim() ?? "";
 
   const missingBusinessFields = [
-    !companyName ? "nama perusahaan" : null,
+    !companyName ? "company name" : null,
     !npwpNumber ? "NPWP" : null,
     !nibNumber ? "NIB" : null,
-    !companyAddress ? "alamat perusahaan" : null,
+    !companyAddress ? "company address" : null,
   ].filter((field): field is string => Boolean(field));
   const missingFields = [
     ...missingBusinessFields,
-    !phone ? "nomor telepon PIC" : null,
+    !phone ? "PIC phone number" : null,
   ].filter((field): field is string => Boolean(field));
   const businessComplete = missingBusinessFields.length === 0;
 

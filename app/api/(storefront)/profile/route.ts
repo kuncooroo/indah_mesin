@@ -10,8 +10,15 @@ const updateSchema = z.object({
   phone: z.string().trim().max(30).optional(),
   avatar: z
     .string()
-    .max(2_800_000)
-    .refine((value) => !value || value.startsWith("data:image/"), "Invalid image")
+    .max(500)
+    .refine(
+      (value) =>
+        !value ||
+        value.startsWith("/uploads/") ||
+        value.startsWith("https://") ||
+        value.startsWith("http://"),
+      "Invalid image"
+    )
     .optional(),
   currentPassword: z.string().optional(),
   newPassword: z.string().min(8).max(128).optional(),

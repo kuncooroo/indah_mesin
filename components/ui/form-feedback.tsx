@@ -10,12 +10,17 @@ export function FieldError({ message }: { message?: string }) {
   );
 }
 
+export function FieldHint({ message }: { message?: string }) {
+  if (!message) return null;
+  return <p className="mt-1 text-[11px] leading-snug text-on-surface-variant/80">{message}</p>;
+}
+
 export function FormAlert({
   message,
   tone = "error",
 }: {
   message?: string;
-  tone?: "error" | "warning";
+  tone?: "error" | "warning" | "success";
 }) {
   if (!message) return null;
   return (
@@ -23,9 +28,9 @@ export function FormAlert({
       role="alert"
       className={cn(
         "rounded-xl p-3 text-body-sm",
-        tone === "error"
-          ? "bg-error-container text-on-error-container"
-          : "border border-status-indent/30 bg-status-indent/10 text-on-surface"
+        tone === "error" && "bg-error-container text-on-error-container",
+        tone === "warning" && "border border-status-indent/30 bg-status-indent/10 text-on-surface",
+        tone === "success" && "bg-secondary-container/40 text-on-surface"
       )}
     >
       {message}

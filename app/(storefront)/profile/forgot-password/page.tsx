@@ -2,12 +2,13 @@
 
 import Link from "next/link";
 import { FormEvent, useState } from "react";
-import { FieldError, FormAlert } from "@/components/ui/form-feedback";
+import { useAppPopup } from "@/components/ui/app-popup";
+import { FieldError, FieldHint, FormAlert } from "@/components/ui/form-feedback";
 import { MaterialSymbol } from "@/components/ui/material-symbol";
 
 export default function ForgotPasswordPage() {
+  const { showSuccess, showError } = useAppPopup();
   const [busy, setBusy] = useState(false);
-  const [error, setError] = useState("");
   const [emailError, setEmailError] = useState("");
   const [resetUrl, setResetUrl] = useState("");
   const [message, setMessage] = useState("");
@@ -15,13 +16,13 @@ export default function ForgotPasswordPage() {
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setBusy(true);
-    setError("");
     setEmailError("");
     setResetUrl("");
     setMessage("");
     const email = String(new FormData(event.currentTarget).get("email") ?? "").trim();
     if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-      setEmailError("Masukkan email yang valid.");
+      setEmailError("Enter a valid email address.");
+      showError("Please fix the highlighted fields.");
       setBusy(false);
       return;
     }
@@ -37,13 +38,14 @@ export default function ForgotPasswordPage() {
         resetUrl?: string;
       };
       if (!response.ok) {
-        setError(result.error ?? "Gagal memproses permintaan.");
+        showError(result.error ?? "Could not process your request.");
         return;
       }
-      setMessage(result.message ?? "Permintaan diproses.");
+      setMessage(result.message ?? "Request processed.");
       if (result.resetUrl) setResetUrl(result.resetUrl);
+      showSuccess(result.message ?? "If the email exists, a reset link has been sent.");
     } catch {
-      setError("Koneksi bermasalah. Coba lagi.");
+      showError("Connection problem. Please try again.");
     } finally {
       setBusy(false);
     }
@@ -54,11 +56,12 @@ export default function ForgotPasswordPage() {
       <div className="mx-auto flex w-full max-w-md flex-col px-margin-mobile">
         <Link href="/profile" className="mb-6 inline-flex items-center gap-1 text-sm text-primary">
           <MaterialSymbol name="arrow_back" className="text-[18px]" />
-          Kembali ke login
+          Back to login
         </Link>
-        <h1 className="font-headline-md text-headline-md text-primary">Lupa Kata Sandi</h1>
+        <h1 className="font-headline-md text-headline-md text-primary">Forgot Password</h1>
         <p className="mt-2 text-body-sm text-on-surface-variant">
-          Masukkan email akun pembeli. Kami siapkan tautan untuk mengatur ulang kata sandi.
+          Enter your buyer account email (including Google email). We will send a reset link to that
+          address.
         </p>
         <form onSubmit={submit} className="mt-6 space-y-4" noValidate>
           <label className="block space-y-1">
@@ -67,20 +70,18 @@ export default function ForgotPasswordPage() {
               name="email"
               type="email"
               autoComplete="email"
-              placeholder="name@company.com"
+              placeholder="name@gmail.com"
               className="h-12 w-full rounded-lg bg-surface-container-lowest px-4 outline-none ring-primary/20 focus:ring-2"
             />
+            <FieldHint message="Use the email registered on your account." />
             <FieldError message={emailError} />
           </label>
-          <FormAlert message={error} />
-          {message ? (
-            <p className="rounded-xl bg-secondary-container/40 p-3 text-body-sm text-on-surface">
-              {message}
-            </p>
-          ) : null}
+          {message ? <FormAlert message={message} tone="success" /> : null}
           {resetUrl ? (
-            <div className="rounded-xl border border-primary/20 bg-primary/5 p-3 text-body-sm">
-              <p className="mb-2 font-medium text-primary">Tautan reset (berlaku 1 jam):</p>
+            <div className="rounded-xl border border-status-indent/30 bg-status-indent/10 p-3 text-body-sm">
+              <p className="mb-2 font-medium text-status-indent">
+                Development mode — SMTP is not configured. Use this link:
+              </p>
               <Link href={resetUrl} className="break-all text-primary underline">
                 {resetUrl}
               </Link>
@@ -91,7 +92,7 @@ export default function ForgotPasswordPage() {
             disabled={busy}
             className="flex h-12 w-full items-center justify-center rounded-lg bg-primary font-button-text text-on-primary disabled:opacity-60"
           >
-            {busy ? "Memproses…" : "Kirim Tautan Reset"}
+            {busy ? "Sending…" : "Send Reset Link"}
           </button>
         </form>
       </div>

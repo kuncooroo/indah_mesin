@@ -84,9 +84,9 @@ export default async function PoPreviewPdfPage({ searchParams }: PoPreviewPdfPag
       productSku: item.product.sku,
       unitPrice: Number(item.priceAtTime),
       priceLabel,
-      buyerName: snapshot.buyerName ?? order.user?.name ?? buyer?.name ?? "Buyer",
+      buyerName: snapshot.buyerName ?? order.user?.name ?? buyer?.name ?? "—",
       buyerCompany:
-        snapshot.companyName ?? order.company?.companyName ?? buyer?.companyName ?? "Buyer Company",
+        snapshot.companyName ?? order.company?.companyName ?? buyer?.companyName ?? "—",
       buyerAddress:
         snapshot.address ??
         (order.shippingAddress
@@ -97,9 +97,9 @@ export default async function PoPreviewPdfPage({ searchParams }: PoPreviewPdfPag
             ]
               .filter(Boolean)
               .join(", ")
-          : buyer?.address ?? "Address not provided"),
-      buyerEmail: order.user?.email ?? buyer?.email ?? "Email not provided",
-      buyerPhone: snapshot.buyerPhone ?? order.user?.phone ?? buyer?.phone ?? "Phone not provided",
+          : buyer?.address ?? "—"),
+      buyerEmail: order.user?.email ?? buyer?.email ?? "—",
+      buyerPhone: snapshot.buyerPhone ?? order.user?.phone ?? buyer?.phone ?? "—",
       buyerNpwp: order.company?.npwpNumber ?? buyer?.npwpNumber ?? "",
       buyerNib: order.company?.nibNumber ?? buyer?.nibNumber ?? "",
       quantity: item.quantity,

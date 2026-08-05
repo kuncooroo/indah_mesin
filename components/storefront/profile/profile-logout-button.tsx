@@ -4,15 +4,23 @@ import { useRouter } from "next/navigation";
 import { signOut } from "next-auth/react";
 import { useState } from "react";
 
+import { useAppPopup } from "@/components/ui/app-popup";
 import { MaterialSymbol } from "@/components/ui/material-symbol";
 
 export function ProfileLogoutButton() {
   const router = useRouter();
+  const { showConfirm } = useAppPopup();
   const [busy, setBusy] = useState(false);
 
   async function handleLogout() {
     if (busy) return;
-    if (!window.confirm("Are you sure you want to logout?")) return;
+    const confirmed = await showConfirm({
+      title: "Log out?",
+      message: "Are you sure you want to log out of your account?",
+      confirmLabel: "Log out",
+      cancelLabel: "Cancel",
+    });
+    if (!confirmed) return;
     setBusy(true);
     await signOut({ redirect: false });
     router.push("/beranda-artikel");
@@ -33,7 +41,7 @@ export function ProfileLogoutButton() {
         <div className="font-button-text text-button-text text-error">
           {busy ? "Logging out..." : "Logout"}
         </div>
-        <div className="font-body-sm text-body-sm text-error/70">Keluar dari Akun</div>
+        <div className="font-body-sm text-body-sm text-error/70">Sign out of your account</div>
       </div>
     </button>
   );

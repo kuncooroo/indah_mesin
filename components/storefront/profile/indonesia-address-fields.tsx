@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { FieldError, inputErrorClass } from "@/components/ui/form-feedback";
 import { cn } from "@/lib/utils";
 
@@ -135,50 +135,54 @@ export function IndonesiaAddressFields({
 
   return (
     <div className="space-y-3">
-      <SelectField
-        label="Provinsi"
+      <SearchableSelect
+        label="Province"
         value={value.provinceId}
+        selectedLabel={value.provinceName}
         options={provinces}
         onChange={(id) => void pickProvince(id)}
         error={errors?.provinceId}
-        placeholder="Pilih provinsi"
+        placeholder="Search / select province"
       />
-      <SelectField
-        label="Kota / Kabupaten"
+      <SearchableSelect
+        label="City / Regency"
         value={value.regencyId}
+        selectedLabel={value.regencyName}
         options={regencies}
         onChange={(id) => void pickRegency(id)}
         error={errors?.regencyId}
-        placeholder={loading === "regencies" ? "Memuat…" : "Pilih kota/kabupaten"}
+        placeholder={loading === "regencies" ? "Loading…" : "Search / select city or regency"}
         disabled={!value.provinceId || loading === "regencies"}
       />
-      <SelectField
-        label="Kecamatan"
+      <SearchableSelect
+        label="District"
         value={value.districtId}
+        selectedLabel={value.districtName}
         options={districts}
         onChange={(id) => void pickDistrict(id)}
         error={errors?.districtId}
-        placeholder={loading === "districts" ? "Memuat…" : "Pilih kecamatan"}
+        placeholder={loading === "districts" ? "Loading…" : "Search / select district"}
         disabled={!value.regencyId || loading === "districts"}
       />
-      <SelectField
-        label="Kelurahan / Desa"
+      <SearchableSelect
+        label="Village / Sub-district"
         value={value.villageId}
+        selectedLabel={value.villageName}
         options={villages}
         onChange={pickVillage}
         error={errors?.villageId}
-        placeholder={loading === "villages" ? "Memuat…" : "Pilih kelurahan/desa"}
+        placeholder={loading === "villages" ? "Loading…" : "Search / select village"}
         disabled={!value.districtId || loading === "villages"}
       />
       <label className="block space-y-1">
         <span className="font-label-technical text-label-technical uppercase text-outline">
-          Nama Jalan, Gedung, No. Rumah
+          Street, Building, House No.
         </span>
         <textarea
           value={value.detail}
           onChange={(event) => onChange({ ...value, detail: event.target.value })}
           rows={2}
-          placeholder="Contoh: Jl. Industri Raya No. 45, Blok B"
+          placeholder="Example: Jl. Industri Raya No. 45, Blok B"
           className={cn(
             "w-full resize-none rounded-lg border border-transparent bg-surface-container px-3 py-2 outline-none focus:ring-2 focus:ring-primary/20",
             inputErrorClass(Boolean(errors?.detail))
@@ -188,7 +192,7 @@ export function IndonesiaAddressFields({
       </label>
       <label className="block space-y-1">
         <span className="font-label-technical text-label-technical uppercase text-outline">
-          Kode Pos
+          Postal Code
         </span>
         <input
           value={value.postalCode}
@@ -209,9 +213,10 @@ export function IndonesiaAddressFields({
   );
 }
 
-function SelectField({
+function SearchableSelect({
   label,
   value,
+  selectedLabel,
   options,
   onChange,
   error,
@@ -220,33 +225,86 @@ function SelectField({
 }: {
   label: string;
   value: string;
+  selectedLabel?: string;
   options: WilayahItem[];
   onChange: (id: string) => void;
   error?: string;
   placeholder: string;
   disabled?: boolean;
 }) {
+  const [query, setQuery] = useState("");
+  const [open, setOpen] = useState(false);
+  const rootRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (value && selectedLabel) setQuery(selectedLabel);
+    if (!value) setQuery("");
+  }, [value, selectedLabel]);
+
+  useEffect(() => {
+    function onPointerDown(event: MouseEvent) {
+      if (!rootRef.current?.contains(event.target as Node)) setOpen(false);
+    }
+    document.addEventListener("mousedown", onPointerDown);
+    return () => document.removeEventListener("mousedown", onPointerDown);
+  }, []);
+
+  const filtered = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    if (!q || (selectedLabel && q === selectedLabel.toLowerCase())) return options;
+    return options.filter((item) => item.name.toLowerCase().includes(q));
+  }, [options, query, selectedLabel]);
+
   return (
-    <label className="block space-y-1">
+    <div ref={rootRef} className="relative block space-y-1">
       <span className="font-label-technical text-label-technical uppercase text-outline">{label}</span>
-      <select
-        value={value}
+      <input
+        type="text"
+        value={query}
         disabled={disabled}
-        onChange={(event) => onChange(event.target.value)}
+        placeholder={placeholder}
+        autoComplete="off"
+        onFocus={() => {
+          if (!disabled) setOpen(true);
+        }}
+        onChange={(event) => {
+          setQuery(event.target.value);
+          setOpen(true);
+          if (value) onChange("");
+        }}
         className={cn(
           "h-11 w-full rounded-lg border border-transparent bg-surface-container px-3 outline-none focus:ring-2 focus:ring-primary/20 disabled:opacity-60",
           inputErrorClass(Boolean(error))
         )}
-      >
-        <option value="">{placeholder}</option>
-        {options.map((item) => (
-          <option key={item.id} value={item.id}>
-            {item.name}
-          </option>
-        ))}
-      </select>
+      />
+      {open && !disabled ? (
+        <ul className="absolute z-20 mt-1 max-h-48 w-full overflow-auto rounded-lg border border-border-subtle bg-surface-container-lowest shadow-lg">
+          {filtered.length === 0 ? (
+            <li className="px-3 py-2 text-sm text-on-surface-variant">No results</li>
+          ) : (
+            filtered.map((item) => (
+              <li key={item.id}>
+                <button
+                  type="button"
+                  className={cn(
+                    "w-full px-3 py-2 text-left text-sm hover:bg-surface-container",
+                    item.id === value && "bg-primary/10 font-medium text-primary"
+                  )}
+                  onClick={() => {
+                    onChange(item.id);
+                    setQuery(item.name);
+                    setOpen(false);
+                  }}
+                >
+                  {item.name}
+                </button>
+              </li>
+            ))
+          )}
+        </ul>
+      ) : null}
       <FieldError message={error} />
-    </label>
+    </div>
   );
 }
 
@@ -264,12 +322,12 @@ export function locationToAddressPayload(location: LocationSelection, label: str
 
 export function validateLocation(location: LocationSelection) {
   const errors: Partial<Record<keyof LocationSelection, string>> = {};
-  if (!location.provinceId) errors.provinceId = "Provinsi wajib dipilih.";
-  if (!location.regencyId) errors.regencyId = "Kota/Kabupaten wajib dipilih.";
-  if (!location.districtId) errors.districtId = "Kecamatan wajib dipilih.";
-  if (!location.villageId) errors.villageId = "Kelurahan/Desa wajib dipilih.";
+  if (!location.provinceId) errors.provinceId = "Province is required.";
+  if (!location.regencyId) errors.regencyId = "City / regency is required.";
+  if (!location.districtId) errors.districtId = "District is required.";
+  if (!location.villageId) errors.villageId = "Village / sub-district is required.";
   if (location.detail.trim().length < 5) {
-    errors.detail = "Detail alamat minimal 5 karakter.";
+    errors.detail = "Street address must be at least 5 characters.";
   }
   return errors;
 }

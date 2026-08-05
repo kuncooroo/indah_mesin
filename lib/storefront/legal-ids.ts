@@ -51,15 +51,15 @@ export function isValidNib(value: string) {
 
 export function npwpErrorMessage(value: string) {
   const digits = normalizeNpwp(value);
-  if (!digits) return "NPWP wajib diisi.";
-  if (digits.length < 15) return "NPWP harus 15 digit (format lama) atau 16 digit.";
-  if (digits.length > 16) return "NPWP maksimal 16 digit.";
+  if (!digits) return "NPWP is required.";
+  if (digits.length < 15) return "NPWP must be 15 digits (legacy) or 16 digits.";
+  if (digits.length > 16) return "NPWP must be at most 16 digits.";
   return "";
 }
 
 export function nibErrorMessage(value: string) {
   const digits = normalizeNib(value);
-  if (!digits) return "NIB wajib diisi.";
-  if (digits.length !== 13) return "NIB harus tepat 13 digit (Nomor Induk Berusaha).";
+  if (!digits) return "NIB is required.";
+  if (digits.length !== 13) return "NIB must be exactly 13 digits.";
   return "";
 }

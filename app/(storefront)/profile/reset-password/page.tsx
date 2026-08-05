@@ -3,7 +3,8 @@
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { FormEvent, Suspense, useState } from "react";
-import { FieldError, FormAlert, inputErrorClass } from "@/components/ui/form-feedback";
+import { useAppPopup } from "@/components/ui/app-popup";
+import { FieldError, FieldHint, inputErrorClass } from "@/components/ui/form-feedback";
 import { MaterialSymbol } from "@/components/ui/material-symbol";
 import { cn } from "@/lib/utils";
 
@@ -12,7 +13,7 @@ export default function ResetPasswordPage() {
     <Suspense
       fallback={
         <main className="bg-background px-margin-mobile py-16 text-on-surface-variant">
-          Memuat…
+          Loading…
         </main>
       }
     >
@@ -25,23 +26,23 @@ function ResetPasswordForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const token = searchParams.get("token") ?? "";
+  const { showError, showSuccess } = useAppPopup();
   const [busy, setBusy] = useState(false);
-  const [error, setError] = useState("");
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setBusy(true);
-    setError("");
     const form = new FormData(event.currentTarget);
     const password = String(form.get("password") ?? "");
     const confirm = String(form.get("confirmPassword") ?? "");
     const nextErrors: Record<string, string> = {};
-    if (!token) nextErrors.token = "Token reset tidak ditemukan.";
-    if (password.length < 8) nextErrors.password = "Kata sandi minimal 8 karakter.";
-    if (password !== confirm) nextErrors.confirmPassword = "Konfirmasi kata sandi tidak cocok.";
+    if (!token) nextErrors.token = "Reset token is missing.";
+    if (password.length < 8) nextErrors.password = "Password must be at least 8 characters.";
+    if (password !== confirm) nextErrors.confirmPassword = "Passwords do not match.";
     setFieldErrors(nextErrors);
     if (Object.keys(nextErrors).length > 0) {
+      showError("Please fix the highlighted fields.");
       setBusy(false);
       return;
     }
@@ -53,12 +54,13 @@ function ResetPasswordForm() {
       });
       const result = (await response.json()) as { error?: string };
       if (!response.ok) {
-        setError(result.error ?? "Gagal mengatur ulang kata sandi.");
+        showError(result.error ?? "Could not reset password.");
         return;
       }
+      showSuccess("Password updated successfully.");
       router.push("/profile?reset=1");
     } catch {
-      setError("Koneksi bermasalah. Coba lagi.");
+      showError("Connection problem. Please try again.");
     } finally {
       setBusy(false);
     }
@@ -69,13 +71,13 @@ function ResetPasswordForm() {
       <div className="mx-auto flex w-full max-w-md flex-col px-margin-mobile">
         <Link href="/profile" className="mb-6 inline-flex items-center gap-1 text-sm text-primary">
           <MaterialSymbol name="arrow_back" className="text-[18px]" />
-          Kembali ke login
+          Back to login
         </Link>
-        <h1 className="font-headline-md text-headline-md text-primary">Atur Ulang Kata Sandi</h1>
+        <h1 className="font-headline-md text-headline-md text-primary">Reset Password</h1>
         <form onSubmit={submit} className="mt-6 space-y-4" noValidate>
           <FieldError message={fieldErrors.token} />
           <label className="block space-y-1">
-            <span className="ml-1 text-label-technical text-on-surface-variant">KATA SANDI BARU</span>
+            <span className="ml-1 text-label-technical text-on-surface-variant">NEW PASSWORD</span>
             <input
               name="password"
               type="password"
@@ -85,11 +87,12 @@ function ResetPasswordForm() {
                 inputErrorClass(Boolean(fieldErrors.password))
               )}
             />
+            <FieldHint message="Use at least 8 characters." />
             <FieldError message={fieldErrors.password} />
           </label>
           <label className="block space-y-1">
             <span className="ml-1 text-label-technical text-on-surface-variant">
-              KONFIRMASI KATA SANDI
+              CONFIRM PASSWORD
             </span>
             <input
               name="confirmPassword"
@@ -102,13 +105,12 @@ function ResetPasswordForm() {
             />
             <FieldError message={fieldErrors.confirmPassword} />
           </label>
-          <FormAlert message={error} />
           <button
             type="submit"
             disabled={busy}
             className="flex h-12 w-full items-center justify-center rounded-lg bg-primary font-button-text text-on-primary disabled:opacity-60"
           >
-            {busy ? "Menyimpan…" : "Simpan Kata Sandi"}
+            {busy ? "Saving…" : "Save Password"}
           </button>
         </form>
       </div>

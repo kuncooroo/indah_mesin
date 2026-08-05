@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 
 import { ProfileSettingsHeader } from "@/components/storefront/profile/profile-settings-header";
@@ -12,7 +12,8 @@ import {
   validateLocation,
   type LocationSelection,
 } from "@/components/storefront/profile/indonesia-address-fields";
-import { FieldError, FormAlert, inputErrorClass } from "@/components/ui/form-feedback";
+import { useAppPopup } from "@/components/ui/app-popup";
+import { FieldError, FieldHint, FormAlert, inputErrorClass } from "@/components/ui/form-feedback";
 import { MaterialSymbol } from "@/components/ui/material-symbol";
 import {
   formatNpwpDisplay,
@@ -58,17 +59,11 @@ type BusinessResponse = {
 };
 
 export default function BusinessIdentityClient() {
+  const router = useRouter();
   const searchParams = useSearchParams();
   const needPo = searchParams.get("need") === "po";
-  const missingFromQuery = useMemo(
-    () =>
-      (searchParams.get("missing") ?? "")
-        .split(",")
-        .map((item) => item.trim())
-        .filter(Boolean),
-    [searchParams]
-  );
   const productId = searchParams.get("product");
+  const { showSuccess, showError, showConfirm } = useAppPopup();
   const [data, setData] = useState<BusinessResponse | null>(null);
   const [npwp, setNpwp] = useState("");
   const [nib, setNib] = useState("");
@@ -81,25 +76,49 @@ export default function BusinessIdentityClient() {
   const [inviteResult, setInviteResult] = useState("");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [error, setError] = useState("");
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [saved, setSaved] = useState(false);
+
+  const remainingMissing = useMemo(() => {
+    if (!data) return [] as string[];
+    const fields: string[] = [];
+    if (!data.business.companyName.trim()) fields.push("company name");
+    if (!data.business.npwpNumber?.trim()) fields.push("NPWP");
+    if (!data.business.nibNumber?.trim()) fields.push("NIB");
+    if (!data.business.addresses.length) fields.push("company address");
+    return fields;
+  }, [data]);
+
+  const poAlert =
+    needPo && remainingMissing.length > 0
+      ? `Complete the following to create a PO: ${remainingMissing.join(", ")}.`
+      : "";
 
   const loadBusiness = useCallback(async () => {
     const response = await fetch("/api/profile/business");
     const result = (await response.json()) as BusinessResponse & { error?: string };
-    if (!response.ok) throw new Error(result.error ?? "Gagal memuat identitas bisnis.");
+    if (!response.ok) throw new Error(result.error ?? "Failed to load business identity.");
     setData(result);
     setNpwp(formatNpwpDisplay(result.business.npwpNumber ?? ""));
     setNib(normalizeNib(result.business.nibNumber ?? ""));
+    return result;
   }, []);
+
+  function finishSave(result: BusinessResponse) {
+    if (needPo && productId && result.businessComplete) {
+      showSuccess("Business identity saved successfully.");
+      router.push(`/po-preview?product=${encodeURIComponent(productId)}`);
+      return;
+    }
+    router.push("/profile?saved=business");
+  }
 
   useEffect(() => {
     let active = true;
     void loadBusiness()
       .catch((reason: unknown) => {
         if (active) {
-          setError(reason instanceof Error ? reason.message : "Gagal memuat identitas bisnis.");
+          showError(reason instanceof Error ? reason.message : "Failed to load business identity.");
         }
       })
       .finally(() => {
@@ -108,7 +127,7 @@ export default function BusinessIdentityClient() {
     return () => {
       active = false;
     };
-  }, [loadBusiness]);
+  }, [loadBusiness, showError]);
 
   async function saveCompany(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -116,16 +135,18 @@ export default function BusinessIdentityClient() {
     const form = new FormData(event.currentTarget);
     const companyName = String(form.get("companyName") ?? "").trim();
     const nextErrors: Record<string, string> = {};
-    if (companyName.length < 2) nextErrors.companyName = "Nama perusahaan minimal 2 karakter.";
+    if (companyName.length < 2) nextErrors.companyName = "Company name must be at least 2 characters.";
     const npwpMsg = npwpErrorMessage(npwp);
     const nibMsg = nibErrorMessage(nib);
     if (npwpMsg) nextErrors.npwpNumber = npwpMsg;
     if (nibMsg) nextErrors.nibNumber = nibMsg;
     setFieldErrors(nextErrors);
-    if (Object.keys(nextErrors).length > 0) return;
+    if (Object.keys(nextErrors).length > 0) {
+      showError("Please fix the highlighted fields before saving.");
+      return;
+    }
 
     setSaving(true);
-    setError("");
     try {
       const response = await fetch("/api/profile/business", {
         method: "PATCH",
@@ -138,12 +159,13 @@ export default function BusinessIdentityClient() {
         }),
       });
       const result = (await response.json()) as { error?: string };
-      if (!response.ok) throw new Error(result.error ?? "Gagal menyimpan perusahaan.");
-      await loadBusiness();
+      if (!response.ok) throw new Error(result.error ?? "Failed to save company details.");
+      const refreshed = await loadBusiness();
       setSaved(true);
       window.setTimeout(() => setSaved(false), 2000);
+      if (refreshed) finishSave(refreshed);
     } catch (reason) {
-      setError(reason instanceof Error ? reason.message : "Gagal menyimpan perusahaan.");
+      showError(reason instanceof Error ? reason.message : "Failed to save company details.");
     } finally {
       setSaving(false);
     }
@@ -154,13 +176,15 @@ export default function BusinessIdentityClient() {
     if (!data?.canManage) return;
     const locationErrors = validateLocation(location);
     const nextErrors: Record<string, string> = { ...locationErrors };
-    if (addressLabel.trim().length < 2) nextErrors.label = "Label lokasi minimal 2 karakter.";
+    if (addressLabel.trim().length < 2) nextErrors.label = "Location label must be at least 2 characters.";
     setFieldErrors(nextErrors);
-    if (Object.keys(nextErrors).length > 0) return;
+    if (Object.keys(nextErrors).length > 0) {
+      showError("Please fix the highlighted address fields.");
+      return;
+    }
 
     const payload = locationToAddressPayload(location, addressLabel.trim());
     setSaving(true);
-    setError("");
     try {
       const response = await fetch("/api/profile/business", {
         method: editingAddressId ? "PATCH" : "POST",
@@ -172,15 +196,16 @@ export default function BusinessIdentityClient() {
         }),
       });
       const result = (await response.json()) as { error?: string };
-      if (!response.ok) throw new Error(result.error ?? "Gagal menyimpan alamat.");
-      await loadBusiness();
+      if (!response.ok) throw new Error(result.error ?? "Failed to save address.");
+      const refreshed = await loadBusiness();
       setLocation(emptyLocation);
       setAddressLabel("");
       setEditingAddressId("");
       setShowAddressForm(false);
       setFieldErrors({});
+      if (refreshed) finishSave(refreshed);
     } catch (reason) {
-      setError(reason instanceof Error ? reason.message : "Gagal menyimpan alamat.");
+      showError(reason instanceof Error ? reason.message : "Failed to save address.");
     } finally {
       setSaving(false);
     }
@@ -197,15 +222,17 @@ export default function BusinessIdentityClient() {
       position: String(form.get("position") ?? "").trim(),
     };
     const nextErrors: Record<string, string> = {};
-    if (payload.name.length < 2) nextErrors.inviteName = "Nama anggota minimal 2 karakter.";
+    if (payload.name.length < 2) nextErrors.inviteName = "Member name must be at least 2 characters.";
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(payload.email)) {
-      nextErrors.inviteEmail = "Email anggota tidak valid.";
+      nextErrors.inviteEmail = "Enter a valid member email.";
     }
     setFieldErrors(nextErrors);
-    if (Object.keys(nextErrors).length > 0) return;
+    if (Object.keys(nextErrors).length > 0) {
+      showError("Please fix the highlighted invite fields.");
+      return;
+    }
 
     setSaving(true);
-    setError("");
     setInviteResult("");
     try {
       const response = await fetch("/api/profile/business/invite", {
@@ -218,33 +245,41 @@ export default function BusinessIdentityClient() {
         message?: string;
         inviteUrl?: string;
       };
-      if (!response.ok) throw new Error(result.error ?? "Gagal membuat undangan.");
+      if (!response.ok) throw new Error(result.error ?? "Failed to create invitation.");
       setInviteResult(
         result.inviteUrl
-          ? `${result.message ?? "Undangan siap."}\n${result.inviteUrl}`
-          : result.message ?? "Undangan dibuat."
+          ? `${result.message ?? "Invite ready."}\n${result.inviteUrl}`
+          : result.message ?? "Invitation created."
       );
+      showSuccess("Team invite created successfully.");
       await loadBusiness();
     } catch (reason) {
-      setError(reason instanceof Error ? reason.message : "Gagal membuat undangan.");
+      showError(reason instanceof Error ? reason.message : "Failed to create invitation.");
     } finally {
       setSaving(false);
     }
   }
 
   async function deleteAddress(id: string) {
-    if (!data?.canManage || !window.confirm("Hapus alamat ini?")) return;
+    if (!data?.canManage) return;
+    const confirmed = await showConfirm({
+      title: "Delete address?",
+      message: "This company address will be removed permanently.",
+      confirmLabel: "Delete",
+      cancelLabel: "Cancel",
+    });
+    if (!confirmed) return;
     setSaving(true);
-    setError("");
     try {
       const response = await fetch(`/api/profile/business?id=${encodeURIComponent(id)}`, {
         method: "DELETE",
       });
       const result = (await response.json()) as { error?: string };
-      if (!response.ok) throw new Error(result.error ?? "Gagal menghapus alamat.");
+      if (!response.ok) throw new Error(result.error ?? "Failed to delete address.");
+      showSuccess("Address deleted.");
       await loadBusiness();
     } catch (reason) {
-      setError(reason instanceof Error ? reason.message : "Gagal menghapus alamat.");
+      showError(reason instanceof Error ? reason.message : "Failed to delete address.");
     } finally {
       setSaving(false);
     }
@@ -262,22 +297,13 @@ export default function BusinessIdentityClient() {
             </div>
           ) : data ? (
             <>
-              {needPo ? (
-                <div className="space-y-1 rounded-xl border border-error/20 bg-error-container/40 p-3">
-                  {(missingFromQuery.length > 0
-                    ? missingFromQuery
-                    : ["identitas bisnis"]
-                  ).map((field) => (
-                    <FieldError key={field} message={`Lengkapi ${field} untuk membuat PO.`} />
-                  ))}
-                </div>
+              {poAlert ? (
+                <FormAlert message={poAlert} tone="warning" />
               ) : !data.businessComplete ? (
-                <div className="flex items-start gap-3 rounded-xl border border-status-indent/20 bg-status-indent/10 p-4">
-                  <MaterialSymbol name="info" className="text-status-indent" />
-                  <p className="font-body-sm text-body-sm text-on-surface-variant">
-                    Lengkapi identitas legal dan alamat perusahaan untuk mempercepat verifikasi PO.
-                  </p>
-                </div>
+                <FormAlert
+                  tone="warning"
+                  message="Complete legal identity and company address to speed up PO verification."
+                />
               ) : null}
 
               {needPo && productId && data.businessComplete ? (
@@ -285,7 +311,7 @@ export default function BusinessIdentityClient() {
                   href={`/po-preview?product=${encodeURIComponent(productId)}`}
                   className="flex items-center justify-center gap-2 rounded-xl bg-primary px-4 py-3 font-button-text text-on-primary"
                 >
-                  Lanjut ke Preview PO
+                  Continue to PO Preview
                   <MaterialSymbol name="arrow_forward" className="text-[18px]" />
                 </Link>
               ) : null}
@@ -315,7 +341,7 @@ export default function BusinessIdentityClient() {
                   />
                   <label className="block space-y-1">
                     <span className="font-label-technical text-label-technical uppercase text-outline">
-                      NPWP (15 atau 16 digit)
+                      NPWP (15 or 16 digits)
                     </span>
                     <input
                       value={npwp}
@@ -328,11 +354,12 @@ export default function BusinessIdentityClient() {
                         inputErrorClass(Boolean(fieldErrors.npwpNumber))
                       )}
                     />
+                    <FieldHint message="Enter 15 digits (legacy) or 16 digits (new NPWP / NIK)." />
                     <FieldError message={fieldErrors.npwpNumber} />
                   </label>
                   <label className="block space-y-1">
                     <span className="font-label-technical text-label-technical uppercase text-outline">
-                      NIB (13 digit)
+                      NIB (13 digits)
                     </span>
                     <input
                       value={nib}
@@ -346,6 +373,7 @@ export default function BusinessIdentityClient() {
                         inputErrorClass(Boolean(fieldErrors.nibNumber))
                       )}
                     />
+                    <FieldHint message="Business Identification Number (NIB) must be exactly 13 digits." />
                     <FieldError message={fieldErrors.nibNumber} />
                   </label>
                   {data.canManage ? (
@@ -359,7 +387,7 @@ export default function BusinessIdentityClient() {
                     </button>
                   ) : (
                     <p className="text-body-sm text-on-surface-variant">
-                      Data perusahaan dikelola oleh buyer utama atau administrator.
+                      Company data is managed by the primary buyer or an administrator.
                     </p>
                   )}
                 </form>
@@ -397,17 +425,18 @@ export default function BusinessIdentityClient() {
                   >
                     <label className="block space-y-1">
                       <span className="font-label-technical text-label-technical uppercase text-outline">
-                        Label Lokasi
+                        Location Label
                       </span>
                       <input
                         value={addressLabel}
                         onChange={(event) => setAddressLabel(event.target.value)}
-                        placeholder="Gudang Cikarang"
+                        placeholder="Cikarang Warehouse"
                         className={cn(
                           "h-11 w-full rounded-lg border border-transparent bg-surface-container px-3 outline-none focus:ring-2 focus:ring-primary/20",
                           inputErrorClass(Boolean(fieldErrors.label))
                         )}
                       />
+                      <FieldHint message="Short label for this facility or office." />
                       <FieldError message={fieldErrors.label} />
                     </label>
                     <IndonesiaAddressFields
@@ -421,7 +450,7 @@ export default function BusinessIdentityClient() {
                         checked={addressPrimary}
                         onChange={(event) => setAddressPrimary(event.target.checked)}
                       />
-                      Jadikan alamat utama
+                      Set as primary address
                     </label>
                     <div className="flex gap-2">
                       <button
@@ -480,7 +509,7 @@ export default function BusinessIdentityClient() {
                                     ...emptyLocation,
                                     detail: address.addressDetail,
                                     postalCode: address.postalCode ?? "",
-                                    // Prefill teks wilayah di detail/city; user pilih ulang cascade jika perlu
+                                    // Prefill city text; user re-selects cascade if needed
                                     provinceName: address.city,
                                   });
                                   setAddressPrimary(address.isPrimary);
@@ -508,7 +537,7 @@ export default function BusinessIdentityClient() {
                     <div className="rounded-xl bg-surface-container-low p-6 text-center">
                       <MaterialSymbol name="add_location_alt" className="text-[36px] text-outline" />
                       <p className="mt-2 text-body-sm text-on-surface-variant">
-                        Belum ada alamat perusahaan.
+                        No company address yet.
                       </p>
                     </div>
                   )}
@@ -564,7 +593,7 @@ export default function BusinessIdentityClient() {
                       >
                         <label className="block space-y-1">
                           <span className="font-label-technical text-label-technical uppercase text-outline">
-                            Nama
+                            Name
                           </span>
                           <input
                             name="name"
@@ -591,7 +620,7 @@ export default function BusinessIdentityClient() {
                         </label>
                         <label className="block space-y-1">
                           <span className="font-label-technical text-label-technical uppercase text-outline">
-                            No. WhatsApp (opsional)
+                            WhatsApp (optional)
                           </span>
                           <input
                             name="phone"
@@ -600,7 +629,7 @@ export default function BusinessIdentityClient() {
                         </label>
                         <label className="block space-y-1">
                           <span className="font-label-technical text-label-technical uppercase text-outline">
-                            Jabatan (opsional)
+                            Position (optional)
                           </span>
                           <input
                             name="position"
@@ -613,7 +642,7 @@ export default function BusinessIdentityClient() {
                           disabled={saving}
                           className="h-11 w-full rounded-xl bg-primary text-on-primary disabled:opacity-60"
                         >
-                          {saving ? "Mengirim…" : "Buat Tautan Undangan"}
+                          {saving ? "Sending…" : "Create Invite Link"}
                         </button>
                       </form>
                     ) : null}
@@ -623,16 +652,13 @@ export default function BusinessIdentityClient() {
                       </div>
                     ) : null}
                     <p className="text-center text-xs text-on-surface-variant">
-                      Bagikan tautan undangan agar anggota membuat kata sandi dan bergabung ke
-                      perusahaan Anda.
+                      Share the invite link so teammates can set a password and join your company.
                     </p>
                   </>
                 ) : null}
               </section>
             </>
           ) : null}
-
-          {error ? <FormAlert message={error} /> : null}
         </div>
       </main>
     </>
@@ -652,7 +678,7 @@ function VerificationBadge({ verified, complete }: { verified: boolean; complete
         name={verified ? "verified" : complete ? "check_circle" : "error"}
         className="text-[16px]"
       />
-      {verified ? "Verified" : complete ? "Data Lengkap" : "Belum Lengkap"}
+      {verified ? "Verified" : complete ? "Complete" : "Incomplete"}
     </span>
   );
 }

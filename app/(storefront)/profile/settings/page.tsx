@@ -5,9 +5,12 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { ChangeEvent, Suspense, useEffect, useRef, useState } from "react";
 
+import { PhoneInput } from "@/components/storefront/phone-input";
 import { ProfileSettingsHeader } from "@/components/storefront/profile/profile-settings-header";
-import { FieldError, FormAlert, inputErrorClass } from "@/components/ui/form-feedback";
+import { useAppPopup } from "@/components/ui/app-popup";
+import { FieldError, FieldHint, FormAlert, inputErrorClass } from "@/components/ui/form-feedback";
 import { MaterialSymbol } from "@/components/ui/material-symbol";
+import { phoneFieldError, parseStoredPhone } from "@/lib/storefront/country-dial-codes";
 import { shopCanvasClassName } from "@/lib/storefront/layout-mode";
 import { cn } from "@/lib/utils";
 
@@ -16,7 +19,7 @@ export default function ProfileSettingsPage() {
     <Suspense
       fallback={
         <main className="min-h-screen bg-background pt-16">
-          <div className="px-4 py-8 text-on-surface-variant">Memuat pengaturan…</div>
+          <div className="px-4 py-8 text-on-surface-variant">Loading settings…</div>
         </main>
       }
     >
@@ -29,11 +32,8 @@ function ProfileSettingsClient() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const needPo = searchParams.get("need") === "po";
-  const missingFromQuery = (searchParams.get("missing") ?? "")
-    .split(",")
-    .map((item) => item.trim())
-    .filter(Boolean);
   const productId = searchParams.get("product");
+  const { showSuccess, showError } = useAppPopup();
   const { data: session, update: updateSession } = useSession();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [name, setName] = useState("");
@@ -41,73 +41,101 @@ function ProfileSettingsClient() {
   const [phone, setPhone] = useState("");
   const [position, setPosition] = useState("");
   const [avatar, setAvatar] = useState("");
+  const [pendingFile, setPendingFile] = useState<File | null>(null);
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [passwordOpen, setPasswordOpen] = useState(false);
-  const [saved, setSaved] = useState(false);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [error, setError] = useState("");
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+  const [liveMissing, setLiveMissing] = useState<string[]>([]);
 
   useEffect(() => {
     void fetch("/api/profile")
       .then(async (response) => {
         const result = await response.json();
-        if (!response.ok) throw new Error(result.error ?? "Gagal memuat profil.");
+        if (!response.ok) throw new Error(result.error ?? "Failed to load profile.");
         return result;
       })
       .then((result) => {
         if (!result?.user) return;
         setName(result.user.name);
         setEmail(result.user.email);
-        setPhone((result.user.phone ?? "").replace(/^\+62\s*/, ""));
+        setPhone(result.user.phone ?? "");
         setPosition(result.user.position ?? "");
         if (result.user.avatar) setAvatar(result.user.avatar);
       })
       .catch((reason: unknown) => {
-        setError(reason instanceof Error ? reason.message : "Gagal memuat profil.");
+        showError(reason instanceof Error ? reason.message : "Failed to load profile.");
       })
       .finally(() => setLoading(false));
-  }, []);
+  }, [showError]);
+
+  useEffect(() => {
+    if (!needPo) return;
+    void fetch("/api/profile/po-readiness")
+      .then((response) => (response.ok ? response.json() : null))
+      .then((result) => {
+        if (result?.missingFields) setLiveMissing(result.missingFields as string[]);
+      })
+      .catch(() => undefined);
+  }, [needPo, phone]);
 
   function changePhoto(event: ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
     if (!file) return;
     if (!file.type.startsWith("image/") || file.size > 2_000_000) {
-      setError("Pilih gambar JPG, PNG, atau WebP berukuran maksimal 2 MB.");
+      showError("Choose a JPG, PNG, or WebP image up to 2 MB.");
       return;
     }
-    setError("");
+    setPendingFile(file);
     const reader = new FileReader();
     reader.onload = () => setAvatar(String(reader.result));
     reader.readAsDataURL(file);
   }
 
   async function handleSave() {
-    setError("");
+    const national = parseStoredPhone(phone).national;
     const nextErrors: Record<string, string> = {};
-    if (name.trim().length < 2) nextErrors.name = "Nama lengkap minimal 2 karakter.";
-    if (needPo && !phone.trim()) nextErrors.phone = "Nomor telepon PIC wajib diisi untuk membuat PO.";
+    if (name.trim().length < 2) nextErrors.name = "Full name must be at least 2 characters.";
+    const phoneErr = phoneFieldError(national, needPo);
+    if (phoneErr) nextErrors.phone = phoneErr;
     if (newPassword) {
-      if (newPassword.length < 8) nextErrors.newPassword = "Kata sandi baru minimal 8 karakter.";
-      if (!currentPassword) nextErrors.currentPassword = "Masukkan kata sandi saat ini.";
+      if (newPassword.length < 8) nextErrors.newPassword = "New password must be at least 8 characters.";
+      if (!currentPassword) nextErrors.currentPassword = "Enter your current password.";
     }
     setFieldErrors(nextErrors);
     if (Object.keys(nextErrors).length > 0) {
+      showError("Please fix the highlighted fields before saving.");
       return;
     }
 
     setSaving(true);
     try {
+      let avatarUrl: string | undefined;
+      if (pendingFile) {
+        const formData = new FormData();
+        formData.append("file", pendingFile);
+        const uploadResponse = await fetch("/api/profile/avatar", {
+          method: "POST",
+          body: formData,
+        });
+        const uploadResult = (await uploadResponse.json()) as { error?: string; url?: string };
+        if (!uploadResponse.ok || !uploadResult.url) {
+          showError(uploadResult.error ?? "Failed to upload profile photo.");
+          return;
+        }
+        avatarUrl = uploadResult.url;
+      }
+
       const response = await fetch("/api/profile", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           name,
           email,
-          phone: phone ? `+62 ${phone}` : "",
-          avatar: avatar || undefined,
+          phone: phone || "",
+          ...(avatarUrl ? { avatar: avatarUrl } : {}),
           currentPassword: currentPassword || undefined,
           newPassword: newPassword || undefined,
         }),
@@ -122,31 +150,39 @@ function ProfileSettingsClient() {
         };
       };
       if (!response.ok) {
-        setError(result.error ?? "Perubahan akun tidak dapat disimpan.");
+        showError(result.error ?? "Account changes could not be saved.");
         return;
       }
       if (result.user) {
         setName(result.user.name);
         setEmail(result.user.email);
-        setPhone((result.user.phone ?? "").replace(/^\+62\s*/, ""));
+        setPhone(result.user.phone ?? "");
         setAvatar(result.user.avatar ?? "");
-        await updateSession({
-          name: result.user.name,
-          email: result.user.email,
-          image: result.user.avatar,
-        });
-        router.refresh();
+        setPendingFile(null);
+        try {
+          await updateSession({
+            name: result.user.name,
+            email: result.user.email,
+            image:
+              result.user.avatar && !result.user.avatar.startsWith("data:")
+                ? result.user.avatar
+                : undefined,
+          });
+        } catch {
+          // optional
+        }
       }
       setCurrentPassword("");
       setNewPassword("");
       setFieldErrors({});
-      setSaved(true);
-      window.setTimeout(() => setSaved(false), 2000);
       if (needPo && productId) {
+        showSuccess("Account changes saved successfully.");
         router.push(`/po-preview?product=${encodeURIComponent(productId)}`);
+      } else {
+        router.push("/profile?saved=account");
       }
     } catch {
-      setError("Koneksi bermasalah. Coba simpan kembali.");
+      showError("Connection problem. Please try saving again.");
     } finally {
       setSaving(false);
     }
@@ -160,6 +196,11 @@ function ProfileSettingsClient() {
       .join("")
       .toUpperCase() || "U";
 
+  const poAlert =
+    needPo && liveMissing.length > 0
+      ? `Complete the following to create a PO: ${liveMissing.join(", ")}.`
+      : "";
+
   return (
     <>
       <ProfileSettingsHeader backHref="/profile" title="Account Settings" />
@@ -172,9 +213,10 @@ function ProfileSettingsClient() {
                 {avatar ? (
                   <Image
                     src={avatar}
-                    alt={name || "Foto profil"}
+                    alt={name || "Profile photo"}
                     width={96}
                     height={96}
+                    unoptimized={avatar.startsWith("data:")}
                     className="h-full w-full object-cover"
                   />
                 ) : (
@@ -192,32 +234,23 @@ function ProfileSettingsClient() {
               <input
                 ref={fileInputRef}
                 type="file"
-                accept="image/*"
+                accept="image/jpeg,image/png,image/webp"
                 onChange={changePhoto}
                 className="hidden"
               />
             </div>
             <div className="mt-4 text-center">
               <h2 className="font-headline-md text-headline-md text-on-surface">
-                {loading ? "Memuat profil…" : name}
+                {loading ? "Loading profile…" : name}
               </h2>
               <p className="font-body-sm text-body-sm text-on-surface-variant">
-                {position || "Lead Procurement Manager"}
+                {position || "Procurement contact"}
               </p>
             </div>
           </div>
 
           <div className={cn("space-y-6 px-4", loading && "pointer-events-none opacity-60")}>
-            {needPo ? (
-              <div className="space-y-1 rounded-xl border border-error/20 bg-error-container/40 p-3">
-                {(missingFromQuery.length > 0
-                  ? missingFromQuery
-                  : ["nomor telepon PIC"]
-                ).map((field) => (
-                  <FieldError key={field} message={`Lengkapi ${field} untuk membuat PO.`} />
-                ))}
-              </div>
-            ) : null}
+            {poAlert ? <FormAlert message={poAlert} tone="warning" /> : null}
 
             <div className="space-y-4">
               <div className="mb-1 flex items-center gap-2">
@@ -231,23 +264,18 @@ function ProfileSettingsClient() {
                 <label className="ml-1 font-label-technical text-label-technical uppercase text-on-surface-variant">
                   Full Name
                 </label>
-                <div className="relative">
-                  <input
-                    type="text"
-                    value={name}
-                    onChange={(event) => setName(event.target.value)}
-                    aria-invalid={Boolean(fieldErrors.name)}
-                    className={cn(
-                      "h-12 w-full rounded-xl border border-transparent bg-surface-container px-4 font-body-md text-on-surface outline-none transition-all focus:ring-2 focus:ring-primary/20",
-                      inputErrorClass(Boolean(fieldErrors.name))
-                    )}
-                    placeholder="Enter your full name"
-                  />
-                  <MaterialSymbol
-                    name="edit"
-                    className="absolute right-4 top-1/2 -translate-y-1/2 text-[20px] text-outline"
-                  />
-                </div>
+                <input
+                  type="text"
+                  value={name}
+                  onChange={(event) => setName(event.target.value)}
+                  aria-invalid={Boolean(fieldErrors.name)}
+                  className={cn(
+                    "h-12 w-full rounded-xl border border-transparent bg-surface-container px-4 font-body-md text-on-surface outline-none transition-all focus:ring-2 focus:ring-primary/20",
+                    inputErrorClass(Boolean(fieldErrors.name))
+                  )}
+                  placeholder="Enter your full name"
+                />
+                <FieldHint message="Minimum 2 characters." />
                 <FieldError message={fieldErrors.name} />
               </div>
 
@@ -255,46 +283,26 @@ function ProfileSettingsClient() {
                 <label className="ml-1 font-label-technical text-label-technical uppercase text-on-surface-variant">
                   Email Address
                 </label>
-                <div className="relative">
-                  <input
-                    type="email"
-                    value={email}
-                    readOnly
-                    className="h-12 w-full cursor-not-allowed rounded-xl bg-surface-dim/30 px-4 font-body-md text-on-surface-variant outline-none"
-                  />
-                  <MaterialSymbol
-                    name="lock"
-                    className="absolute right-4 top-1/2 -translate-y-1/2 text-[20px] text-outline"
-                  />
-                </div>
-                <p className="ml-1 text-[11px] italic text-on-surface-variant/60">
-                  Hubungi admin untuk mengubah email perusahaan.
-                </p>
+                <input
+                  type="email"
+                  value={email}
+                  readOnly
+                  className="h-12 w-full cursor-not-allowed rounded-xl bg-surface-dim/30 px-4 font-body-md text-on-surface-variant outline-none"
+                />
+                <FieldHint message="Contact an admin to change your company email." />
               </div>
 
               <div className="space-y-1.5">
                 <label className="ml-1 font-label-technical text-label-technical uppercase text-on-surface-variant">
                   Phone Number
                 </label>
-                <div className="flex gap-2">
-                  <div className="flex h-12 items-center justify-center rounded-xl bg-surface-container px-3 font-label-technical text-on-surface">
-                    +62
-                  </div>
-                  <input
-                    type="tel"
-                    value={phone}
-                    onChange={(event) => setPhone(event.target.value)}
-                    aria-invalid={Boolean(fieldErrors.phone)}
-                    className={cn(
-                      "h-12 flex-1 rounded-xl border border-transparent bg-surface-container px-4 font-body-md text-on-surface outline-none transition-all focus:ring-2 focus:ring-primary/20",
-                      inputErrorClass(Boolean(fieldErrors.phone))
-                    )}
-                    placeholder="8xx xxxx xxxx"
-                  />
-                </div>
-                <FieldError message={fieldErrors.phone} />
+                <PhoneInput
+                  value={phone}
+                  onChange={setPhone}
+                  error={fieldErrors.phone}
+                  required={needPo}
+                />
               </div>
-
             </div>
 
             <div className="space-y-4 pt-4">
@@ -358,6 +366,7 @@ function ProfileSettingsClient() {
                       )}
                       placeholder="Min. 8 characters"
                     />
+                    <FieldHint message="Use at least 8 characters." />
                     <FieldError message={fieldErrors.newPassword} />
                   </div>
                 </div>
@@ -365,11 +374,6 @@ function ProfileSettingsClient() {
             </div>
           </div>
 
-          {error ? (
-            <div className="fixed bottom-20 left-4 right-4 z-50 mx-auto max-w-[398px]">
-              <FormAlert message={error} />
-            </div>
-          ) : null}
           <div className="pointer-events-none fixed inset-x-0 bottom-0 z-40 flex justify-center">
             <div
               className={cn(
@@ -379,17 +383,12 @@ function ProfileSettingsClient() {
             >
               <button
                 type="button"
-                onClick={handleSave}
+                onClick={() => void handleSave()}
                 disabled={loading || saving}
-                className={cn(
-                  "flex h-14 w-full items-center justify-center gap-2 rounded-full font-button-text text-button-text shadow-xl transition-all active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60",
-                  saved ? "bg-status-ready text-on-primary" : "bg-primary text-on-primary"
-                )}
+                className="flex h-14 w-full items-center justify-center gap-2 rounded-full bg-primary font-button-text text-button-text text-on-primary shadow-xl transition-all active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60"
               >
-                <MaterialSymbol
-                  name={saved ? "check_circle" : saving ? "progress_activity" : "save"}
-                />
-                {saved ? "Changes Saved!" : saving ? "Saving…" : "Save Changes"}
+                <MaterialSymbol name={saving ? "progress_activity" : "save"} />
+                {saving ? "Saving…" : "Save Changes"}
               </button>
             </div>
           </div>
