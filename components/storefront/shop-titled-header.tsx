@@ -1,16 +1,31 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { MaterialSymbol } from "@/components/ui/material-symbol";
 import { useShopNavDrawer } from "@/components/storefront/shop-nav-drawer";
 import { ShopSearchForm } from "@/components/storefront/shop-search-form";
-import { MARKETPLACE_PRODUCTS } from "@/lib/storefront/catalog-data";
+import type { Product } from "@/lib/storefront/product-types";
 
 /** Halaman utama dengan judul teks (Contact, dll.) + hamburger */
 export function ShopTitledHeader({ title }: { title: string }) {
   const { openDrawer } = useShopNavDrawer();
   const [searchOpen, setSearchOpen] = useState(false);
+  const [suggestions, setSuggestions] = useState<Product[]>([]);
+
+  useEffect(() => {
+    if (!searchOpen || suggestions.length > 0) return;
+    let cancelled = false;
+    fetch("/api/products")
+      .then((r) => (r.ok ? r.json() : []))
+      .then((data: Product[]) => {
+        if (!cancelled && Array.isArray(data)) setSuggestions(data);
+      })
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
+  }, [searchOpen, suggestions.length]);
 
   return (
     <header className="sticky top-0 z-50 w-full border-b border-border-subtle bg-surface/90 backdrop-blur-xl">
@@ -48,7 +63,7 @@ export function ShopTitledHeader({ title }: { title: string }) {
       {searchOpen ? (
         <div className="animate-slide-down border-t border-border-subtle px-margin-mobile py-3">
           <ShopSearchForm
-            suggestions={[...MARKETPLACE_PRODUCTS]}
+            suggestions={suggestions}
             autoFocus
             returnToCatalogWhenEmpty
           />

@@ -1,75 +1,101 @@
+import type { Metadata } from "next";
 import Link from "next/link";
-
 import Image from "next/image";
-
 import { PwaBanner } from "@/components/storefront/pwa-banner";
-
 import { IndustrialHeader } from "@/components/storefront/industrial-header";
-
 import { CatalogCard } from "@/components/storefront/catalog-card";
-
 import { MaterialSymbol } from "@/components/ui/material-symbol";
-
 import { listFeaturedProducts, listPublishedProducts } from "@/lib/storefront/catalog";
-
 import { listPublishedArticles } from "@/lib/storefront/content";
 import { listBerandaCategories } from "@/lib/storefront/categories";
 import { ShopSearchForm } from "@/components/storefront/shop-search-form";
 import { MARKETPLACE_QUICK_FILTERS } from "@/lib/storefront/catalog-data";
+import { JsonLd } from "@/components/seo/json-ld";
+import { absoluteUrl, buildPageMetadata, getSiteUrl, SITE_NAME } from "@/lib/seo";
+import { indahMesinContact } from "@/lib/storefront/contact";
 
-
+export const metadata: Metadata = buildPageMetadata({
+  title: `${SITE_NAME} — Marketplace Mesin Industri`,
+  description:
+    "Temukan mesin industri F&B, sterilisasi, penutup kaleng, dan solusi produksi. Katalog resmi Indah Mesin dengan request quotation via WhatsApp.",
+  path: "/beranda-artikel",
+  keywords: [
+    "marketplace mesin industri",
+    "Indah Mesin",
+    "retort sterilizer",
+    "can seamer",
+    "MesinBagus",
+  ],
+});
 
 export default async function BerandaArtikelPage() {
-
   const [featured, searchProducts, articles, categories] = await Promise.all([
-
     listFeaturedProducts(3),
     listPublishedProducts(),
-
     listPublishedArticles(),
-
     listBerandaCategories(5),
   ]);
 
-
+  const siteUrl = getSiteUrl();
+  const structuredData = [
+    {
+      "@context": "https://schema.org",
+      "@type": "WebSite",
+      name: SITE_NAME,
+      url: absoluteUrl("/beranda-artikel"),
+      publisher: {
+        "@type": "Organization",
+        name: indahMesinContact.brandName,
+        url: siteUrl,
+      },
+      potentialAction: {
+        "@type": "SearchAction",
+        target: {
+          "@type": "EntryPoint",
+          urlTemplate: `${absoluteUrl("/categories")}?q={search_term_string}`,
+        },
+        "query-input": "required name=search_term_string",
+      },
+    },
+    {
+      "@context": "https://schema.org",
+      "@type": "Organization",
+      name: indahMesinContact.brandName,
+      url: siteUrl,
+      email: indahMesinContact.email,
+      telephone: indahMesinContact.phoneDisplay,
+      address: {
+        "@type": "PostalAddress",
+        streetAddress: indahMesinContact.headOffice.lines[0],
+        addressLocality: "Kabupaten Malang",
+        addressRegion: "Jawa Timur",
+        postalCode: "65172",
+        addressCountry: "ID",
+      },
+    },
+  ];
 
   return (
-
     <>
-
+      <JsonLd data={structuredData} />
       <PwaBanner />
-
       <IndustrialHeader showSearch={false} />
 
-
-
       <main className="mx-auto max-w-7xl">
-
         <section className="relative overflow-visible bg-metallic-bg px-margin-mobile pb-12 pt-8 md:px-margin-desktop">
-
           <div className="relative z-10">
-
-            <h2 className="mb-6 max-w-2xl font-headline-lg-mobile text-headline-lg-mobile leading-tight text-primary md:font-headline-lg md:text-headline-lg">
-
+            <h1 className="mb-6 max-w-2xl font-headline-lg-mobile text-headline-lg-mobile leading-tight text-primary md:font-headline-lg md:text-headline-lg">
               Find the Best Industrial <br className="hidden md:block" />
-
               Solution for Your Business
-
-            </h2>
-
+            </h1>
             <ShopSearchForm
               className="relative z-10 max-w-3xl"
               suggestions={searchProducts}
             />
-
           </div>
-
           <div className="pointer-events-none absolute right-0 top-0 h-full w-1/3 opacity-10">
-
             <MaterialSymbol name="settings" className="rotate-12 text-[240px]" />
-
           </div>
-
         </section>
 
 

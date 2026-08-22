@@ -23,6 +23,7 @@ export async function setProductPublished(productId: string, published: boolean)
   revalidatePath("/admin/dashboard");
   revalidatePath("/beranda-artikel");
   revalidatePath("/categories");
+  revalidatePath("/products", "layout");
 }
 
 export async function updateProductStatus(

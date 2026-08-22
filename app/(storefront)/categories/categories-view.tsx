@@ -3,7 +3,6 @@
 import { useMemo, useState, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { MaterialSymbol } from "@/components/ui/material-symbol";
-import { MARKETPLACE_CATEGORIES } from "@/lib/storefront/catalog-data";
 import type { StorefrontCategory } from "@/lib/storefront/categories";
 import type { Product } from "@/lib/storefront/product-types";
 import {
@@ -48,10 +47,7 @@ export function CategoriesView({
   products: Product[];
   categories: StorefrontCategory[];
 }) {
-  const tabs = useMemo(
-    () => (categories.length > 0 ? categories : [...MARKETPLACE_CATEGORIES]),
-    [categories]
-  );
+  const tabs = useMemo(() => categories, [categories]);
   const tabsWithAll = [ALL_CATEGORY, ...tabs];
   const searchParams = useSearchParams();
   const router = useRouter();
@@ -136,9 +132,9 @@ export function CategoriesView({
 
       <main className="mx-auto w-full">
         <section className="px-margin-mobile py-4">
-          <h2 className="font-headline-lg-mobile text-headline-lg-mobile text-primary">
+          <h1 className="font-headline-lg-mobile text-headline-lg-mobile text-primary">
             Categories &amp; Filters
-          </h2>
+          </h1>
         </section>
 
         <section className="mb-6 overflow-x-auto hide-scrollbar whitespace-nowrap border-b border-border-subtle px-margin-mobile">

@@ -5,8 +5,10 @@ import {
   AdminFormField,
   AdminCheckboxField,
   AdminSubmitButton,
+  AdminActionForm,
   adminFormGridClass,
 } from "./admin-crud-ui";
+import type { ActionResult } from "@/lib/action-result";
 
 const companyTypeOptions = [
   { value: "BUYER", label: "Buyer (Pembeli)" },
@@ -16,11 +18,11 @@ const companyTypeOptions = [
 export function CompanyCreateDialog({
   createAction,
 }: {
-  createAction: (formData: FormData) => Promise<void>;
+  createAction: (formData: FormData) => Promise<ActionResult | void>;
 }) {
   return (
     <AdminCrudDialog title="Tambah Perusahaan" triggerLabel="+ Tambah Perusahaan">
-      <form action={createAction} className={adminFormGridClass}>
+      <AdminActionForm action={createAction} className={adminFormGridClass}>
         <AdminFormField label="Nama perusahaan" name="companyName" required />
         <AdminFormField
           label="Tipe"
@@ -33,7 +35,7 @@ export function CompanyCreateDialog({
         <AdminFormField label="NIB" name="nibNumber" />
         <AdminCheckboxField label="Terverifikasi" name="isVerified" />
         <AdminSubmitButton label="Simpan" />
-      </form>
+      </AdminActionForm>
     </AdminCrudDialog>
   );
 }
@@ -50,11 +52,11 @@ export function CompanyEditDialog({
     nibNumber: string | null;
     isVerified: boolean;
   };
-  updateAction: (formData: FormData) => Promise<void>;
+  updateAction: (formData: FormData) => Promise<ActionResult | void>;
 }) {
   return (
     <AdminCrudDialog title="Edit Perusahaan" triggerLabel="Edit" variant="ghost" triggerMode="icon-edit">
-      <form action={updateAction} className={adminFormGridClass}>
+      <AdminActionForm action={updateAction} className={adminFormGridClass} resetOnSuccess={false}>
         <input type="hidden" name="id" value={row.id} />
         <AdminFormField label="Nama perusahaan" name="companyName" defaultValue={row.companyName} required />
         <AdminFormField
@@ -68,7 +70,7 @@ export function CompanyEditDialog({
         <AdminFormField label="NIB" name="nibNumber" defaultValue={row.nibNumber ?? ""} />
         <AdminCheckboxField label="Terverifikasi" name="isVerified" defaultChecked={row.isVerified} />
         <AdminSubmitButton label="Update" />
-      </form>
+      </AdminActionForm>
     </AdminCrudDialog>
   );
 }
@@ -78,13 +80,13 @@ export function CompanyAddressCreateDialog({
   companies,
   fixedCompanyId,
 }: {
-  createAction: (formData: FormData) => Promise<void>;
+  createAction: (formData: FormData) => Promise<ActionResult | void>;
   companies?: { id: string; label: string }[];
   fixedCompanyId?: string;
 }) {
   return (
     <AdminCrudDialog title="Tambah Alamat" triggerLabel="+ Tambah Alamat">
-      <form action={createAction} className={adminFormGridClass}>
+      <AdminActionForm action={createAction} className={adminFormGridClass}>
         {fixedCompanyId ? (
           <input type="hidden" name="companyId" value={fixedCompanyId} />
         ) : (
@@ -102,7 +104,7 @@ export function CompanyAddressCreateDialog({
         <AdminFormField label="Kode pos" name="postalCode" />
         <AdminCheckboxField label="Alamat utama" name="isPrimary" />
         <AdminSubmitButton label="Simpan" />
-      </form>
+      </AdminActionForm>
     </AdminCrudDialog>
   );
 }
@@ -119,11 +121,11 @@ export function CompanyAddressEditDialog({
     postalCode: string | null;
     isPrimary: boolean;
   };
-  updateAction: (formData: FormData) => Promise<void>;
+  updateAction: (formData: FormData) => Promise<ActionResult | void>;
 }) {
   return (
     <AdminCrudDialog title="Edit Alamat" triggerLabel="Edit" variant="ghost" triggerMode="icon-edit">
-      <form action={updateAction} className={adminFormGridClass}>
+      <AdminActionForm action={updateAction} className={adminFormGridClass} resetOnSuccess={false}>
         <input type="hidden" name="id" value={row.id} />
         <AdminFormField label="Label" name="label" defaultValue={row.label} required />
         <AdminFormField label="Alamat lengkap" name="addressDetail" as="textarea" defaultValue={row.addressDetail} />
@@ -131,7 +133,7 @@ export function CompanyAddressEditDialog({
         <AdminFormField label="Kode pos" name="postalCode" defaultValue={row.postalCode ?? ""} />
         <AdminCheckboxField label="Alamat utama" name="isPrimary" defaultChecked={row.isPrimary} />
         <AdminSubmitButton label="Update" />
-      </form>
+      </AdminActionForm>
     </AdminCrudDialog>
   );
 }
@@ -149,11 +151,11 @@ export function OrderEditDialog({
   updateAction,
 }: {
   row: { id: string; status: string; notes: string | null };
-  updateAction: (formData: FormData) => Promise<void>;
+  updateAction: (formData: FormData) => Promise<ActionResult | void>;
 }) {
   return (
     <AdminCrudDialog title="Edit Order / PO" triggerLabel="Edit" variant="ghost" triggerMode="icon-edit">
-      <form action={updateAction} className={adminFormGridClass}>
+      <AdminActionForm action={updateAction} className={adminFormGridClass} resetOnSuccess={false}>
         <input type="hidden" name="id" value={row.id} />
         <AdminFormField
           label="Status"
@@ -164,7 +166,7 @@ export function OrderEditDialog({
         />
         <AdminFormField label="Catatan" name="notes" as="textarea" defaultValue={row.notes ?? ""} />
         <AdminSubmitButton label="Update" />
-      </form>
+      </AdminActionForm>
     </AdminCrudDialog>
   );
 }
@@ -179,11 +181,11 @@ const documentTypeOptions = [
 export function ArchiveDocumentCreateDialog({
   createAction,
 }: {
-  createAction: (formData: FormData) => Promise<void>;
+  createAction: (formData: FormData) => Promise<ActionResult | void>;
 }) {
   return (
     <AdminCrudDialog title="Tambah Dokumen" triggerLabel="+ Tambah Dokumen">
-      <form action={createAction} className={adminFormGridClass}>
+      <AdminActionForm action={createAction} className={adminFormGridClass}>
         <AdminFormField label="Nama file" name="documentName" required />
         <AdminFormField
           label="Tipe"
@@ -196,7 +198,7 @@ export function ArchiveDocumentCreateDialog({
         <AdminFormField label="User ID (opsional)" name="userId" />
         <AdminFormField label="Order ID (opsional)" name="orderId" />
         <AdminSubmitButton label="Simpan" />
-      </form>
+      </AdminActionForm>
     </AdminCrudDialog>
   );
 }

@@ -6,7 +6,6 @@ import {
 import {
   MARKETPLACE_PRODUCTS,
   shopCatalogProductWhere,
-  HOME_FEATURED_SKUS,
 } from "@/lib/storefront/catalog-data";
 import { getProductDetailEnrichment } from "@/lib/storefront/product-detail-enrichment";
 import { prisma } from "@/lib/prisma";
@@ -162,31 +161,26 @@ const productInclude = {
   documents: true,
 } as const;
 
-async function fetchPublishedFromDb(): Promise<Product[]> {
+async function fetchPublishedFromDb(): Promise<{ ok: boolean; products: Product[] }> {
   try {
     const rows = await prisma.product.findMany({
       where: shopCatalogProductWhere,
-      orderBy: { name: "asc" },
+      orderBy: { createdAt: "desc" },
       include: productInclude,
     });
-    return rows.map(mapDbProduct);
+    return { ok: true, products: rows.map(mapDbProduct) };
   } catch {
-    return [];
+    return { ok: false, products: [] };
   }
 }
 
 export async function listPublishedProducts(): Promise<Product[]> {
-  const fromDb = await fetchPublishedFromDb();
-  if (fromDb.length > 0) return fromDb;
+  const { ok, products } = await fetchPublishedFromDb();
+  if (ok) return products;
   return catalogFallback.map(enrichFromCatalogSeed);
 }
 
 export async function listFeaturedProducts(limit = 3): Promise<Product[]> {
-  const all = await listPublishedProducts();
-  const picked = HOME_FEATURED_SKUS.map((sku) =>
-    all.find((p) => p.sku === sku),
-  ).filter((p): p is Product => Boolean(p));
-  if (picked.length >= limit) return picked.slice(0, limit);
   try {
     const rows = await prisma.product.findMany({
       where: shopCatalogProductWhere,
@@ -198,9 +192,10 @@ export async function listFeaturedProducts(limit = 3): Promise<Product[]> {
       return rows.map(mapDbProduct);
     }
   } catch {
-    /* fallback */
+    /* fallback below */
   }
-  return catalogFallback.slice(0, limit).map(enrichFromCatalogSeed);
+  const all = await listPublishedProducts();
+  return all.slice(0, limit);
 }
 
 export async function findProductById(
@@ -217,13 +212,13 @@ export async function findProductById(
       include: productInclude,
     });
     if (row) return mapDbProduct(row);
+    return undefined;
   } catch {
-    /* fallback */
+    const staticMatch = catalogFallback.find(
+      (p) => p.id === id || p.sku === id || p.slug === id,
+    );
+    return staticMatch ? enrichFromCatalogSeed(staticMatch) : undefined;
   }
-  const staticMatch = catalogFallback.find(
-    (p) => p.id === id || p.sku === id || p.slug === id,
-  );
-  return staticMatch ? enrichFromCatalogSeed(staticMatch) : undefined;
 }
 
 export async function findProductBySku(
@@ -262,7 +257,7 @@ export async function listSavedSkusForShop(): Promise<string[]> {
 
 export async function getSavedProducts(): Promise<Product[]> {
   const userId = await getDemoShopUserId();
-  if (!userId) return listPublishedProducts().then((all) => all.slice(0, 0));
+  if (!userId) return [];
 
   try {
     const rows = await prisma.savedItem.findMany({

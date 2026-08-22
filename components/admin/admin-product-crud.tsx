@@ -6,22 +6,24 @@ import {
   AdminCheckboxField,
   AdminSubmitButton,
   AdminFileField,
+  AdminActionForm,
   adminFormGridClass,
 } from "./admin-crud-ui";
+import type { ActionResult } from "@/lib/action-result";
 
 export function ProductCreateDialog({
   createAction,
   categories,
 }: {
-  createAction: (formData: FormData) => Promise<void>;
+  createAction: (formData: FormData) => Promise<ActionResult | void>;
   categories: { id: string; label: string }[];
 }) {
   return (
     <AdminCrudDialog title="Tambah Produk" triggerLabel="+ Tambah Produk">
-      <form action={createAction} className={adminFormGridClass}>
-        <AdminFormField label="SKU" name="sku" required />
-        <AdminFormField label="Nama" name="name" required />
-        <AdminFormField label="Slug (opsional)" name="slug" />
+      <AdminActionForm action={createAction} className={adminFormGridClass}>
+        <AdminFormField label="SKU" name="sku" required minLength={3} maxLength={50} />
+        <AdminFormField label="Nama" name="name" required minLength={3} maxLength={150} />
+        <AdminFormField label="Slug (opsional)" name="slug" maxLength={80} />
         <AdminFormField
           label="Kategori"
           name="categoryId"
@@ -49,7 +51,7 @@ export function ProductCreateDialog({
         <AdminFileField label="URL SOP PDF" name="sopUrl" />
         <AdminCheckboxField label="Published" name="isPublished" defaultChecked />
         <AdminSubmitButton label="Simpan" />
-      </form>
+      </AdminActionForm>
     </AdminCrudDialog>
   );
 }
@@ -73,13 +75,13 @@ export function ProductEditDialog({
     sopUrl: string | null;
     isPublished: boolean;
   };
-  updateAction: (formData: FormData) => Promise<void>;
+  updateAction: (formData: FormData) => Promise<ActionResult | void>;
   categories: { id: string; label: string }[];
   primaryImageUrl?: string;
 }) {
   return (
     <AdminCrudDialog title="Edit Produk" triggerLabel="Edit" variant="ghost" triggerMode="icon-edit">
-      <form action={updateAction} className={adminFormGridClass}>
+      <AdminActionForm action={updateAction} className={adminFormGridClass} resetOnSuccess={false}>
         <input type="hidden" name="id" value={product.id} />
         <AdminFormField label="Nama" name="name" defaultValue={product.name} required />
         <AdminFormField
@@ -113,7 +115,7 @@ export function ProductEditDialog({
         <AdminFileField label="URL SOP PDF" name="sopUrl" defaultUrl={product.sopUrl ?? undefined} />
         <AdminCheckboxField label="Published" name="isPublished" defaultChecked={product.isPublished} />
         <AdminSubmitButton label="Update" />
-      </form>
+      </AdminActionForm>
     </AdminCrudDialog>
   );
 }

@@ -1,8 +1,20 @@
 "use client";
 
-import { useState } from "react";
+import {
+  createContext,
+  useContext,
+  useState,
+  useTransition,
+  type FormEvent,
+  type ReactNode,
+} from "react";
 import { Pencil, Trash2, Loader2 } from "lucide-react";
 import { toast } from "sonner";
+import { useRouter } from "next/navigation";
+import type { ActionResult } from "@/lib/action-result";
+
+const AdminDialogCloseCtx = createContext<(() => void) | null>(null);
+const AdminFormPendingCtx = createContext(false);
 
 export function AdminCrudDialog({
   title,
@@ -13,7 +25,7 @@ export function AdminCrudDialog({
 }: {
   title: string;
   triggerLabel: string;
-  children: React.ReactNode;
+  children: ReactNode;
   variant?: "primary" | "ghost";
   triggerMode?: "text" | "icon-edit";
 }) {
@@ -50,7 +62,9 @@ export function AdminCrudDialog({
           />
           <div className="relative max-h-[90vh] w-full max-w-3xl overflow-y-auto rounded-xl border border-neutral-200 bg-white p-6 shadow-xl sm:p-8">
             <h2 className="mb-5 text-lg font-semibold text-neutral-900">{title}</h2>
-            {children}
+            <AdminDialogCloseCtx.Provider value={() => setOpen(false)}>
+              {children}
+            </AdminDialogCloseCtx.Provider>
             <button
               type="button"
               className="mt-5 text-sm text-neutral-500 hover:text-neutral-800"
@@ -62,6 +76,66 @@ export function AdminCrudDialog({
         </div>
       ) : null}
     </>
+  );
+}
+
+export function AdminActionForm({
+  action,
+  className,
+  children,
+  resetOnSuccess = true,
+}: {
+  action: (formData: FormData) => Promise<ActionResult | void>;
+  className?: string;
+  children: ReactNode;
+  resetOnSuccess?: boolean;
+}) {
+  const close = useContext(AdminDialogCloseCtx);
+  const router = useRouter();
+  const [pending, startTransition] = useTransition();
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+
+  function onSubmit(e: FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    const form = e.currentTarget;
+    const fd = new FormData(form);
+    setFieldErrors({});
+    startTransition(async () => {
+      const result = await action(fd);
+      if (!result) {
+        toast.success("Berhasil.");
+        close?.();
+        router.refresh();
+        if (resetOnSuccess) form.reset();
+        return;
+      }
+      if (result.success) {
+        toast.success(result.message);
+        close?.();
+        router.refresh();
+        if (resetOnSuccess) form.reset();
+        return;
+      }
+      toast.error(result.message);
+      if (result.fieldErrors) setFieldErrors(result.fieldErrors);
+    });
+  }
+
+  return (
+    <AdminFormPendingCtx.Provider value={pending}>
+      <form onSubmit={onSubmit} className={className}>
+        <fieldset disabled={pending} className="min-w-0 contents">
+          {children}
+        </fieldset>
+        {Object.keys(fieldErrors).length > 0 ? (
+          <ul className="mt-2 space-y-1 text-sm text-red-600 md:col-span-2">
+            {Object.entries(fieldErrors).map(([key, msg]) => (
+              <li key={key}>{msg}</li>
+            ))}
+          </ul>
+        ) : null}
+      </form>
+    </AdminFormPendingCtx.Provider>
   );
 }
 
@@ -77,6 +151,10 @@ export function AdminFormField({
   as = "input",
   options,
   className,
+  minLength,
+  maxLength,
+  min,
+  max,
 }: {
   label: string;
   name: string;
@@ -86,6 +164,10 @@ export function AdminFormField({
   as?: "input" | "textarea" | "select";
   options?: { value: string; label: string }[];
   className?: string;
+  minLength?: number;
+  maxLength?: number;
+  min?: number;
+  max?: number;
 }) {
   const inputClass =
     "mt-1 w-full rounded-lg border border-neutral-200 px-3 py-2 text-sm outline-none focus:border-neutral-400";
@@ -98,6 +180,8 @@ export function AdminFormField({
           name={name}
           defaultValue={defaultValue}
           required={required}
+          minLength={minLength}
+          maxLength={maxLength}
           rows={3}
           className={inputClass}
         />
@@ -115,6 +199,10 @@ export function AdminFormField({
           name={name}
           defaultValue={defaultValue}
           required={required}
+          minLength={minLength}
+          maxLength={maxLength}
+          min={min}
+          max={max}
           className={inputClass}
         />
       )}
@@ -202,13 +290,16 @@ export function AdminCheckboxField({
 }
 
 export function AdminSubmitButton({ label }: { label: string }) {
+  const pending = useContext(AdminFormPendingCtx);
   return (
     <div className="md:col-span-2">
       <button
         type="submit"
-        className="w-full rounded-lg bg-neutral-900 py-2.5 text-sm font-medium text-white hover:bg-neutral-800"
+        disabled={pending}
+        className="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-neutral-900 py-2.5 text-sm font-medium text-white hover:bg-neutral-800 disabled:opacity-60"
       >
-        {label}
+        {pending ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+        {pending ? "Menyimpan…" : label}
       </button>
     </div>
   );
@@ -217,21 +308,71 @@ export function AdminSubmitButton({ label }: { label: string }) {
 export function AdminDeleteButton({
   action,
 }: {
-  action: (formData: FormData) => void | Promise<void>;
+  action: () => Promise<ActionResult | void>;
   label?: string;
 }) {
+  const router = useRouter();
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [pending, startTransition] = useTransition();
+
+  function onConfirm() {
+    startTransition(async () => {
+      const result = await action();
+      if (!result || result.success) {
+        toast.success(result?.message ?? "Data berhasil dihapus.");
+        setConfirmOpen(false);
+        router.refresh();
+        return;
+      }
+      toast.error(result.message);
+    });
+  }
+
   return (
-    <form action={action}>
+    <>
       <button
-        type="submit"
+        type="button"
         title="Hapus"
         className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-red-200 text-red-700 transition-colors hover:bg-red-50"
-        onClick={(e) => {
-          if (!confirm("Yakin hapus data ini?")) e.preventDefault();
-        }}
+        onClick={() => setConfirmOpen(true)}
       >
         <Trash2 className="h-4 w-4" strokeWidth={1.75} />
       </button>
-    </form>
+      {confirmOpen ? (
+        <div className="fixed inset-0 z-[110] flex items-center justify-center p-4">
+          <button
+            type="button"
+            className="absolute inset-0 bg-black/40"
+            aria-label="Batal"
+            onClick={() => !pending && setConfirmOpen(false)}
+          />
+          <div className="relative w-full max-w-sm rounded-xl border border-neutral-200 bg-white p-5 shadow-xl">
+            <h3 className="text-base font-semibold text-neutral-900">Hapus data?</h3>
+            <p className="mt-2 text-sm text-neutral-600">
+              Tindakan ini tidak dapat dibatalkan. Pastikan data tidak masih digunakan.
+            </p>
+            <div className="mt-5 flex justify-end gap-2">
+              <button
+                type="button"
+                disabled={pending}
+                className="rounded-lg border border-neutral-200 px-3 py-2 text-sm text-neutral-700 hover:bg-neutral-50 disabled:opacity-60"
+                onClick={() => setConfirmOpen(false)}
+              >
+                Batal
+              </button>
+              <button
+                type="button"
+                disabled={pending}
+                className="inline-flex items-center gap-2 rounded-lg bg-red-600 px-3 py-2 text-sm font-medium text-white hover:bg-red-700 disabled:opacity-60"
+                onClick={onConfirm}
+              >
+                {pending ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+                {pending ? "Menghapus…" : "Hapus"}
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+    </>
   );
 }

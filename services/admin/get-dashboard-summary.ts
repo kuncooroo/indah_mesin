@@ -27,8 +27,9 @@ export async function getAdminDashboardInsights(): Promise<AdminDashboardInsight
 
 export async function getAdminDashboardSummary(): Promise<AdminModuleSummary[]> {
   const [
-    productPublishedDb,
+    productShopVisible,
     productTotalDb,
+    categoryShopVisible,
     categoryTotalDb,
     articlePublishedDb,
     articleTotalDb,
@@ -44,7 +45,13 @@ export async function getAdminDashboardSummary(): Promise<AdminModuleSummary[]> 
   ] = await Promise.all([
     prisma.product.count({ where: shopCatalogProductWhere }),
     prisma.product.count(),
-    prisma.category.count({ where: shopCatalogCategoryWhere }),
+    prisma.category.count({
+      where: {
+        ...shopCatalogCategoryWhere,
+        products: { some: shopCatalogProductWhere },
+      },
+    }),
+    prisma.category.count(),
     prisma.article.count({ where: { published: true } }),
     prisma.article.count(),
     safeOrderCount(),
@@ -59,8 +66,8 @@ export async function getAdminDashboardSummary(): Promise<AdminModuleSummary[]> 
   ]);
 
   const counts: Record<string, { shopVisibleCount: number; databaseTotal: number }> = {
-    products: { shopVisibleCount: productPublishedDb, databaseTotal: productTotalDb },
-    categories: { shopVisibleCount: categoryTotalDb, databaseTotal: categoryTotalDb },
+    products: { shopVisibleCount: productShopVisible, databaseTotal: productTotalDb },
+    categories: { shopVisibleCount: categoryShopVisible, databaseTotal: categoryTotalDb },
     companies: { shopVisibleCount: companyTotal, databaseTotal: companyTotal },
     customers: { shopVisibleCount: orphanCustomerTotal, databaseTotal: customerTotal },
     orders: { shopVisibleCount: orderTotal, databaseTotal: orderTotal },

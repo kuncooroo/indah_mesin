@@ -1,12 +1,7 @@
 import Image from "next/image";
 import { prisma } from "@/lib/prisma";
-import { parseAdminListParams, rowNumber } from "@/lib/admin/list-params";
-import {
-  adminProductListWhere,
-  sortProductsByCatalogSku,
-  shopCatalogCategoryWhere,
-  MARKETPLACE_PRODUCTS,
-} from "@/lib/storefront/catalog-data";
+import { adminProductOrderBy, parseAdminListParams, rowNumber } from "@/lib/admin/list-params";
+import { adminProductListWhere } from "@/lib/storefront/catalog-data";
 import { createProduct, updateProduct, deleteProduct } from "@/lib/admin-crud";
 import { AdminPageHeader } from "@/components/admin/admin-page-header";
 import {
@@ -41,7 +36,7 @@ export default async function AdminProductsPage({ searchParams }: PageProps) {
   const params = parseAdminListParams(await searchParams);
   const where = adminProductListWhere(params.q);
 
-  const [total, rawRows, categories] = await Promise.all([
+  const [total, rows, categories] = await Promise.all([
     prisma.product.count({ where }),
     prisma.product.findMany({
       where,
@@ -49,17 +44,15 @@ export default async function AdminProductsPage({ searchParams }: PageProps) {
         category: true,
         media: { where: { isPrimary: true }, take: 1 },
       },
+      orderBy: adminProductOrderBy(params.sort),
+      skip: params.skip,
+      take: params.pageSize,
     }),
     prisma.category.findMany({
-      where: shopCatalogCategoryWhere,
       orderBy: { name: "asc" },
       select: { id: true, name: true, slug: true },
     }),
   ]);
-  const rows = sortProductsByCatalogSku(rawRows).slice(
-    params.skip,
-    params.skip + params.pageSize
-  );
 
   const categoryOptions = categories.map((c) => ({
     id: c.id,
@@ -70,7 +63,7 @@ export default async function AdminProductsPage({ searchParams }: PageProps) {
     <>
       <AdminPageHeader
         title="Produk"
-        description={`Katalog resmi toko (${MARKETPLACE_PRODUCTS.length} produk) — gambar, deskripsi, dan harga sama dengan halaman user.`}
+        description={`Semua produk di database (${total}). Storefront hanya menampilkan yang published & masuk katalog toko.`}
       />
       <AdminListShell
         basePath="/admin/products"
@@ -78,6 +71,7 @@ export default async function AdminProductsPage({ searchParams }: PageProps) {
         page={params.page}
         pageSize={params.pageSize}
         total={total}
+        sort={params.sort}
         searchPlaceholder="Cari nama, SKU, kategori…"
         createAction={
           <ProductCreateDialog createAction={createProduct} categories={categoryOptions} />

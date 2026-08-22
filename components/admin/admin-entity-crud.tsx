@@ -6,19 +6,21 @@ import {
   AdminCheckboxField,
   AdminSubmitButton,
   AdminFileField,
+  AdminActionForm,
   adminFormGridClass,
 } from "./admin-crud-ui";
+import type { ActionResult } from "@/lib/action-result";
 
 export function CategoryCreateDialog({
   createAction,
   parentOptions,
 }: {
-  createAction: (formData: FormData) => Promise<void>;
+  createAction: (formData: FormData) => Promise<ActionResult | void>;
   parentOptions?: { value: string; label: string }[];
 }) {
   return (
     <AdminCrudDialog title="Tambah Kategori" triggerLabel="+ Tambah Kategori">
-      <form action={createAction} className={adminFormGridClass}>
+      <AdminActionForm action={createAction} className={adminFormGridClass}>
         <AdminFormField label="Slug" name="slug" required />
         <AdminFormField label="Nama" name="name" required />
         <AdminFormField label="Ikon (Material)" name="icon" defaultValue="category" />
@@ -34,7 +36,7 @@ export function CategoryCreateDialog({
           <input type="hidden" name="parentId" value="" />
         )}
         <AdminSubmitButton label="Simpan" />
-      </form>
+      </AdminActionForm>
     </AdminCrudDialog>
   );
 }
@@ -51,12 +53,12 @@ export function CategoryEditDialog({
     icon: string | null;
     parentId: string | null;
   };
-  updateAction: (formData: FormData) => Promise<void>;
+  updateAction: (formData: FormData) => Promise<ActionResult | void>;
   parentOptions?: { value: string; label: string }[];
 }) {
   return (
     <AdminCrudDialog title="Edit Kategori" triggerLabel="Edit" variant="ghost" triggerMode="icon-edit">
-      <form action={updateAction} className={adminFormGridClass}>
+      <AdminActionForm action={updateAction} className={adminFormGridClass} resetOnSuccess={false}>
         <input type="hidden" name="id" value={row.id} />
         <AdminFormField label="Slug" name="slug" defaultValue={row.slug} required />
         <AdminFormField label="Nama" name="name" defaultValue={row.name} required />
@@ -74,7 +76,7 @@ export function CategoryEditDialog({
           />
         ) : null}
         <AdminSubmitButton label="Update" />
-      </form>
+      </AdminActionForm>
     </AdminCrudDialog>
   );
 }
@@ -82,11 +84,11 @@ export function CategoryEditDialog({
 export function ArticleCreateDialog({
   createAction,
 }: {
-  createAction: (formData: FormData) => Promise<void>;
+  createAction: (formData: FormData) => Promise<ActionResult | void>;
 }) {
   return (
     <AdminCrudDialog title="Tambah Artikel" triggerLabel="+ Tambah Artikel">
-      <form action={createAction} className={adminFormGridClass}>
+      <AdminActionForm action={createAction} className={adminFormGridClass}>
         <AdminFormField label="Judul" name="title" required />
         <AdminFormField label="Slug" name="slug" />
         <AdminFormField label="Kategori" name="category" defaultValue="Teknologi" />
@@ -94,7 +96,7 @@ export function ArticleCreateDialog({
         <AdminFormField label="Menit baca" name="readMinutes" type="number" defaultValue={5} />
         <AdminCheckboxField label="Published" name="published" defaultChecked />
         <AdminSubmitButton label="Simpan" />
-      </form>
+      </AdminActionForm>
     </AdminCrudDialog>
   );
 }
@@ -105,12 +107,12 @@ export function ArticleEditDialog({
   imageUrl,
 }: {
   row: { id: string; title: string; category: string; readMinutes: number; published: boolean };
-  updateAction: (formData: FormData) => Promise<void>;
+  updateAction: (formData: FormData) => Promise<ActionResult | void>;
   imageUrl?: string;
 }) {
   return (
     <AdminCrudDialog title="Edit Artikel" triggerLabel="Edit" variant="ghost" triggerMode="icon-edit">
-      <form action={updateAction} className={adminFormGridClass}>
+      <AdminActionForm action={updateAction} className={adminFormGridClass} resetOnSuccess={false}>
         <input type="hidden" name="id" value={row.id} />
         <AdminFormField label="Judul" name="title" defaultValue={row.title} required />
         <AdminFormField label="Kategori" name="category" defaultValue={row.category} />
@@ -118,7 +120,7 @@ export function ArticleEditDialog({
         <AdminFormField label="Menit baca" name="readMinutes" type="number" defaultValue={row.readMinutes} />
         <AdminCheckboxField label="Published" name="published" defaultChecked={row.published} />
         <AdminSubmitButton label="Update" />
-      </form>
+      </AdminActionForm>
     </AdminCrudDialog>
   );
 }
@@ -126,17 +128,17 @@ export function ArticleEditDialog({
 export function FaqCreateDialog({
   createAction,
 }: {
-  createAction: (formData: FormData) => Promise<void>;
+  createAction: (formData: FormData) => Promise<ActionResult | void>;
 }) {
   return (
     <AdminCrudDialog title="Tambah FAQ" triggerLabel="+ Tambah FAQ">
-      <form action={createAction} className={adminFormGridClass}>
+      <AdminActionForm action={createAction} className={adminFormGridClass}>
         <AdminFormField label="Pertanyaan" name="question" required className="md:col-span-2" />
         <AdminFormField label="Jawaban" name="answer" as="textarea" required className="md:col-span-2" />
         <AdminFormField label="Urutan" name="sortOrder" type="number" defaultValue={0} />
         <AdminCheckboxField label="Published" name="published" defaultChecked />
         <AdminSubmitButton label="Simpan" />
-      </form>
+      </AdminActionForm>
     </AdminCrudDialog>
   );
 }
@@ -146,18 +148,18 @@ export function FaqEditDialog({
   updateAction,
 }: {
   row: { id: string; question: string; answer: string; sortOrder: number; published: boolean };
-  updateAction: (formData: FormData) => Promise<void>;
+  updateAction: (formData: FormData) => Promise<ActionResult | void>;
 }) {
   return (
     <AdminCrudDialog title="Edit FAQ" triggerLabel="Edit" variant="ghost" triggerMode="icon-edit">
-      <form action={updateAction} className={adminFormGridClass}>
+      <AdminActionForm action={updateAction} className={adminFormGridClass} resetOnSuccess={false}>
         <input type="hidden" name="id" value={row.id} />
         <AdminFormField label="Pertanyaan" name="question" defaultValue={row.question} required className="md:col-span-2" />
         <AdminFormField label="Jawaban" name="answer" as="textarea" defaultValue={row.answer} required className="md:col-span-2" />
         <AdminFormField label="Urutan" name="sortOrder" type="number" defaultValue={row.sortOrder} />
         <AdminCheckboxField label="Published" name="published" defaultChecked={row.published} />
         <AdminSubmitButton label="Update" />
-      </form>
+      </AdminActionForm>
     </AdminCrudDialog>
   );
 }
@@ -166,12 +168,12 @@ export function ReviewCreateDialog({
   createAction,
   products,
 }: {
-  createAction: (formData: FormData) => Promise<void>;
+  createAction: (formData: FormData) => Promise<ActionResult | void>;
   products: { id: string; name: string }[];
 }) {
   return (
     <AdminCrudDialog title="Tambah Ulasan" triggerLabel="+ Tambah Ulasan">
-      <form action={createAction} className={adminFormGridClass}>
+      <AdminActionForm action={createAction} className={adminFormGridClass}>
         <AdminFormField label="Nama penulis" name="authorName" required />
         <AdminFormField
           label="Produk"
@@ -184,7 +186,7 @@ export function ReviewCreateDialog({
         <AdminFormField label="Ulasan" name="content" as="textarea" required className="md:col-span-2" />
         <AdminCheckboxField label="Published" name="published" defaultChecked />
         <AdminSubmitButton label="Simpan" />
-      </form>
+      </AdminActionForm>
     </AdminCrudDialog>
   );
 }
@@ -202,12 +204,12 @@ export function ReviewEditDialog({
     published: boolean;
     productId: string | null;
   };
-  updateAction: (formData: FormData) => Promise<void>;
+  updateAction: (formData: FormData) => Promise<ActionResult | void>;
   products: { id: string; name: string }[];
 }) {
   return (
     <AdminCrudDialog title="Edit Ulasan" triggerLabel="Edit" variant="ghost" triggerMode="icon-edit">
-      <form action={updateAction} className={adminFormGridClass}>
+      <AdminActionForm action={updateAction} className={adminFormGridClass} resetOnSuccess={false}>
         <input type="hidden" name="id" value={row.id} />
         <AdminFormField label="Nama penulis" name="authorName" defaultValue={row.authorName} required />
         <AdminFormField
@@ -221,7 +223,7 @@ export function ReviewEditDialog({
         <AdminFormField label="Ulasan" name="content" as="textarea" defaultValue={row.content} required className="md:col-span-2" />
         <AdminCheckboxField label="Published" name="published" defaultChecked={row.published} />
         <AdminSubmitButton label="Update" />
-      </form>
+      </AdminActionForm>
     </AdminCrudDialog>
   );
 }
@@ -229,11 +231,11 @@ export function ReviewEditDialog({
 export function UserCreateDialog({
   createAction,
 }: {
-  createAction: (formData: FormData) => Promise<void>;
+  createAction: (formData: FormData) => Promise<ActionResult | void>;
 }) {
   return (
     <AdminCrudDialog title="Tambah Admin" triggerLabel="+ Tambah User">
-      <form action={createAction} className={adminFormGridClass}>
+      <AdminActionForm action={createAction} className={adminFormGridClass}>
         <AdminFormField label="Username" name="username" required />
         <AdminFormField label="Password" name="password" type="password" required />
         <AdminFormField label="Nama" name="name" />
@@ -249,7 +251,7 @@ export function UserCreateDialog({
           ]}
         />
         <AdminSubmitButton label="Simpan" />
-      </form>
+      </AdminActionForm>
     </AdminCrudDialog>
   );
 }
@@ -271,12 +273,12 @@ export function CustomerEditDialog({
     verificationStatus: string;
   };
   companies: { id: string; label: string }[];
-  updateAction: (formData: FormData) => Promise<void>;
+  updateAction: (formData: FormData) => Promise<ActionResult | void>;
 }) {
   const verified = row.verificationStatus === "VERIFIED";
   return (
     <AdminCrudDialog title="Edit PIC" triggerLabel="Edit" variant="ghost" triggerMode="icon-edit">
-      <form action={updateAction} className={adminFormGridClass}>
+      <AdminActionForm action={updateAction} className={adminFormGridClass} resetOnSuccess={false}>
         <input type="hidden" name="id" value={row.id} />
         <AdminFormField label="Nama PIC" name="name" defaultValue={row.name ?? ""} />
         <AdminFormField label="Email" name="email" defaultValue={row.email ?? ""} />
@@ -292,7 +294,7 @@ export function CustomerEditDialog({
         <AdminFormField label="Buyer ID" name="customBuyerId" defaultValue={row.customBuyerId ?? ""} />
         <AdminCheckboxField label="Verified Buyer" name="verifiedBuyer" defaultChecked={verified} />
         <AdminSubmitButton label="Update" />
-      </form>
+      </AdminActionForm>
     </AdminCrudDialog>
   );
 }
@@ -302,13 +304,13 @@ export function FavoriteCreateDialog({
   users,
   products,
 }: {
-  createAction: (formData: FormData) => Promise<void>;
+  createAction: (formData: FormData) => Promise<ActionResult | void>;
   users: { id: string; label: string }[];
   products: { id: string; label: string }[];
 }) {
   return (
     <AdminCrudDialog title="Tambah Favorit" triggerLabel="+ Tambah Favorit">
-      <form action={createAction} className={adminFormGridClass}>
+      <AdminActionForm action={createAction} className={adminFormGridClass}>
         <AdminFormField
           label="Pengguna"
           name="userId"
@@ -324,7 +326,7 @@ export function FavoriteCreateDialog({
           options={products.map((p) => ({ value: p.id, label: p.label }))}
         />
         <AdminSubmitButton label="Simpan" />
-      </form>
+      </AdminActionForm>
     </AdminCrudDialog>
   );
 }
@@ -339,11 +341,11 @@ export function RfqEditDialog({
     picName: string;
     companyName: string;
   };
-  updateAction: (formData: FormData) => Promise<void>;
+  updateAction: (formData: FormData) => Promise<ActionResult | void>;
 }) {
   return (
     <AdminCrudDialog title="Edit RFQ" triggerLabel="Edit" variant="ghost" triggerMode="icon-edit">
-      <form action={updateAction} className={adminFormGridClass}>
+      <AdminActionForm action={updateAction} className={adminFormGridClass} resetOnSuccess={false}>
         <input type="hidden" name="id" value={row.id} />
         <AdminFormField
           label="Status"
@@ -360,7 +362,7 @@ export function RfqEditDialog({
         <AdminFormField label="PIC" name="picName" defaultValue={row.picName} />
         <AdminFormField label="Perusahaan" name="companyName" defaultValue={row.companyName} />
         <AdminSubmitButton label="Update" />
-      </form>
+      </AdminActionForm>
     </AdminCrudDialog>
   );
 }

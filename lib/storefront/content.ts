@@ -2,7 +2,7 @@ import { stitchArticles } from "@/lib/storefront/content-data";
 
 import { prisma } from "@/lib/prisma";
 
-import { MARKETPLACE_CATEGORIES, MARKETPLACE_QUICK_FILTERS } from "@/lib/storefront/catalog-data";
+import { MARKETPLACE_QUICK_FILTERS } from "@/lib/storefront/catalog-data";
 
 import { berandaMainCategories } from "@/lib/storefront/content-data";
 
@@ -49,20 +49,20 @@ export async function listPublishedArticles(): Promise<ArticleCard[]> {
 }
 
 const groupSlugs = {
-  MARKETPLACE: MARKETPLACE_CATEGORIES.map((c) => c.id),
-  FILTER: MARKETPLACE_CATEGORIES.map((c) => c.id),
   BERANDA: berandaMainCategories.map((c) => c.id),
 } as const;
 
-/** Kategori dari DB — slug group hanya fallback urutan jika perlu. */
+/** Kategori dari DB — MARKETPLACE/FILTER = semua kategori; BERANDA bisa prefer slug legacy. */
 export async function listCategoriesByGroup(group: "MARKETPLACE" | "FILTER" | "BERANDA") {
-  const slugs = groupSlugs[group];
   try {
-    const rows = await prisma.category.findMany({
-      where: { slug: { in: [...slugs] } },
-      orderBy: { name: "asc" },
-    });
-    if (rows.length > 0) return rows;
+    if (group === "BERANDA") {
+      const slugs = groupSlugs.BERANDA;
+      const preferred = await prisma.category.findMany({
+        where: { slug: { in: [...slugs] } },
+        orderBy: { name: "asc" },
+      });
+      if (preferred.length > 0) return preferred;
+    }
     return await prisma.category.findMany({ orderBy: { name: "asc" } });
   } catch {
     return [];

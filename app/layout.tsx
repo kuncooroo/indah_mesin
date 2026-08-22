@@ -1,19 +1,27 @@
 import type { Metadata, Viewport } from "next";
 import { AppProviders } from "@/components/providers/app-providers";
 import { ServiceWorkerRegister } from "@/components/pwa/service-worker-register";
+import {
+  DEFAULT_DESCRIPTION,
+  getSiteUrl,
+  INDEX_FOLLOW,
+  SITE_NAME,
+  SITE_TAGLINE,
+  absoluteUrl,
+} from "@/lib/seo";
 import "./globals.css";
 
-const siteUrl = (process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000").replace(/\/$/, "");
+const siteUrl = getSiteUrl();
+const defaultOgImage = absoluteUrl("/icons/icon-512.png");
 
 export const metadata: Metadata = {
   metadataBase: new URL(siteUrl),
   title: {
-    default: "MesinBagus — Marketplace Mesin Industri | Indah Mesin",
-    template: "%s | MesinBagus",
+    default: `${SITE_NAME} — ${SITE_TAGLINE}`,
+    template: `%s | ${SITE_NAME}`,
   },
-  description:
-    "MesinBagus by Indah Mesin — katalog mesin industri F&B, sterilisasi, penutup kaleng, seal kemasan. Request quotation & PO via WhatsApp.",
-  applicationName: "MesinBagus",
+  description: DEFAULT_DESCRIPTION,
+  applicationName: SITE_NAME,
   keywords: [
     "mesin industri",
     "Indah Mesin",
@@ -21,32 +29,53 @@ export const metadata: Metadata = {
     "can seamer",
     "food processing equipment",
     "MesinBagus",
+    "marketplace mesin",
+    "sterilisasi F&B",
   ],
+  authors: [{ name: "Indah Mesin" }],
+  creator: "Indah Mesin",
+  publisher: "Indah Mesin",
+  category: "business",
+  robots: INDEX_FOLLOW,
   openGraph: {
     type: "website",
     locale: "id_ID",
-    siteName: "MesinBagus",
-    title: "MesinBagus — Marketplace Mesin Industri",
+    siteName: SITE_NAME,
+    title: `${SITE_NAME} — Marketplace Mesin Industri`,
     description:
       "Temukan mesin industri, spesifikasi teknis, dan ajukan penawaran resmi via WhatsApp.",
     url: siteUrl,
+    images: [
+      {
+        url: defaultOgImage,
+        width: 512,
+        height: 512,
+        alt: `${SITE_NAME} by Indah Mesin`,
+      },
+    ],
   },
   twitter: {
     card: "summary_large_image",
-    title: "MesinBagus — Marketplace Mesin Industri",
+    title: `${SITE_NAME} — Marketplace Mesin Industri`,
     description: "Katalog mesin industri B2B — Indah Mesin, Malang.",
+    images: [defaultOgImage],
   },
   alternates: {
-    canonical: siteUrl,
+    canonical: "/",
   },
   appleWebApp: {
     capable: true,
     statusBarStyle: "default",
-    title: "MesinBagus",
+    title: SITE_NAME,
   },
   icons: {
     icon: [{ url: "/icon.svg", type: "image/svg+xml" }],
     apple: [{ url: "/icons/icon-192.png", sizes: "192x192" }],
+  },
+  formatDetection: {
+    telephone: true,
+    email: true,
+    address: true,
   },
 };
 
@@ -63,11 +92,7 @@ export default function RootLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html
-      lang="id"
-      className="light h-full"
-      suppressHydrationWarning
-    >
+    <html lang="id" className="light h-full" suppressHydrationWarning>
       <head>
         {/* Runtime font loading avoids network access during the production build. */}
         {/* eslint-disable-next-line @next/next/no-page-custom-font */}

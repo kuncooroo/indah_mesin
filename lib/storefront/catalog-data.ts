@@ -1,7 +1,7 @@
 import type { Product, ProductStatus } from "@/lib/storefront/product-types";
 import type { Prisma } from "@prisma/client";
 
-/** Slug kategori — selaras admin & storefront (5 kategori, mockup IndustrialX) */
+/** Slug kategori — data seed & fallback UI saja (bukan penentu tampil di toko). */
 export const MARKETPLACE_CATEGORIES = [
   {
     id: "mesin-sterilisasi",
@@ -39,7 +39,7 @@ export const MARKETPLACE_QUICK_FILTERS = [
   { id: "heavy", label: "Heavy Duty" },
 ] as const;
 
-/** Tiga produk unggulan beranda — urutan & gambar selaras mockup IndustrialX */
+/** Preferensi featured lama — storefront sekarang memakai produk published terbaru dari DB. */
 export const HOME_FEATURED_SKUS = ["FDP-RTR-500", "IMS-STEAM-200", "IMS-PROD-1000"] as const;
 
 const RETORT_IMAGE =
@@ -59,7 +59,7 @@ const IMG_CAN_SEAMER =
 
 type CatalogSeed = Product & { category: MarketplaceCategorySlug };
 
-/** Enam produk resmi Indah Mesin — satu sumber untuk seed & fallback. */
+/** Enam produk seed/fallback — dipakai `prisma/seed` & offline fallback saja. */
 export const MARKETPLACE_PRODUCTS: CatalogSeed[] = [
   {
     id: "industrial-retort-sterilizer-high-pressure-steam",
@@ -220,63 +220,50 @@ export function parseCatalogPriceIdr(priceLabel: string): number {
   return parseInt(digits, 10) || 0;
 }
 
-/** Slug kategori yang tampil di toko & admin (sumber sama). */
+/** @deprecated seed only — storefront tidak memfilter by slug list */
 export const MARKETPLACE_CATEGORY_SLUGS = MARKETPLACE_CATEGORIES.map((c) => c.id);
 
-/** Produk yang tampil di halaman user — admin memakai filter yang sama. */
+/**
+ * Produk storefront: published di MySQL.
+ * SKU hanya identifier unik, bukan whitelist tampilan.
+ */
 export const shopCatalogProductWhere: Prisma.ProductWhereInput = {
   isPublished: true,
-  sku: { in: [...MARKETPLACE_SKUS] },
 };
 
-export const shopCatalogCategoryWhere: Prisma.CategoryWhereInput = {
-  slug: { in: [...MARKETPLACE_CATEGORY_SLUGS] },
-};
+/**
+ * Kategori storefront: semua kategori di database (admin CRUD).
+ */
+export const shopCatalogCategoryWhere: Prisma.CategoryWhereInput = {};
 
+/** Admin melihat SEMUA produk di MySQL (bukan hanya yang published). */
 export function adminProductListWhere(
   q?: string
 ): Prisma.ProductWhereInput {
-  if (!q?.trim()) return shopCatalogProductWhere;
+  if (!q?.trim()) return {};
   const term = q.trim();
   return {
-    AND: [
-      shopCatalogProductWhere,
-      {
-        OR: [
-          { name: { contains: term } },
-          { sku: { contains: term } },
-          { category: { name: { contains: term } } },
-        ],
-      },
+    OR: [
+      { name: { contains: term } },
+      { sku: { contains: term } },
+      { category: { name: { contains: term } } },
     ],
   };
 }
 
+/** Admin melihat SEMUA kategori di MySQL. */
 export function adminCategoryListWhere(q?: string): Prisma.CategoryWhereInput {
-  if (!q?.trim()) return shopCatalogCategoryWhere;
+  if (!q?.trim()) return {};
   const term = q.trim();
   return {
-    AND: [
-      shopCatalogCategoryWhere,
-      {
-        OR: [{ name: { contains: term } }, { slug: { contains: term } }],
-      },
-    ],
+    OR: [{ name: { contains: term } }, { slug: { contains: term } }],
   };
 }
 
 export function sortProductsByCatalogSku<T extends { sku: string }>(rows: T[]): T[] {
-  const rank = new Map(MARKETPLACE_SKUS.map((sku, i) => [sku, i]));
-  return [...rows].sort(
-    (a, b) => (rank.get(a.sku) ?? 999) - (rank.get(b.sku) ?? 999)
-  );
+  return [...rows];
 }
 
 export function sortCategoriesByCatalogSlug<T extends { slug: string }>(rows: T[]): T[] {
-  const rank = new Map<string, number>(
-    MARKETPLACE_CATEGORY_SLUGS.map((slug, i) => [slug, i])
-  );
-  return [...rows].sort(
-    (a, b) => (rank.get(a.slug) ?? 999) - (rank.get(b.slug) ?? 999)
-  );
+  return [...rows];
 }

@@ -2,11 +2,7 @@ import { prisma } from "@/lib/prisma";
 
 import { parseAdminListParams, rowNumber } from "@/lib/admin/list-params";
 
-import {
-  adminCategoryListWhere,
-  sortCategoriesByCatalogSlug,
-  MARKETPLACE_CATEGORIES,
-} from "@/lib/storefront/catalog-data";
+import { adminCategoryListWhere } from "@/lib/storefront/catalog-data";
 
 import { createCategory, updateCategory, deleteCategory } from "@/lib/admin-crud";
 
@@ -48,24 +44,20 @@ export default async function AdminCategoriesPage({ searchParams }: PageProps) {
 
 
 
-  const [total, rawRows, allCategories] = await Promise.all([
-
+  const [total, rows, allCategories] = await Promise.all([
     prisma.category.count({ where }),
-
-    prisma.category.findMany({ where }),
-
+    prisma.category.findMany({
+      where,
+      orderBy: { name: "asc" },
+      skip: params.skip,
+      take: params.pageSize,
+    }),
     prisma.category.findMany({
       where: adminCategoryListWhere(),
       orderBy: { name: "asc" },
       select: { id: true, name: true },
     }),
-
   ]);
-
-  const rows = sortCategoriesByCatalogSlug(rawRows).slice(
-    params.skip,
-    params.skip + params.pageSize
-  );
 
 
 
@@ -79,7 +71,7 @@ export default async function AdminCategoriesPage({ searchParams }: PageProps) {
 
       <AdminPageHeader
         title="Kategori"
-        description={`${MARKETPLACE_CATEGORIES.length} kategori resmi toko — ikon & nama sama dengan beranda user.`}
+        description={`Semua kategori di database (${total}). Storefront hanya memakai slug katalog toko.`}
       />
 
       <AdminListShell

@@ -2,11 +2,20 @@
 
 import bcrypt from "bcrypt";
 import { revalidatePath } from "next/cache";
-import { getServerSession } from "next-auth";
 import { getAdminSession, isAdminRole } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import type { AdminRole, RfqStatus, StockStatus, OrderStatus, CompanyType, ArchiveDocumentType } from "@prisma/client";
+import type {
+  AdminRole,
+  RfqStatus,
+  StockStatus,
+  OrderStatus,
+  CompanyType,
+  ArchiveDocumentType,
+} from "@prisma/client";
 import { Prisma } from "@prisma/client";
+import { fail, ok, type ActionResult } from "@/lib/action-result";
+import { runAdminAction } from "@/lib/prisma-errors";
+import { parseNonNegativeDecimal, requireTrimmed } from "@/lib/admin/validation";
 
 async function requireAdmin() {
   const session = await getAdminSession();
@@ -27,6 +36,8 @@ async function requireSuperAdmin() {
 function revalidateShop() {
   revalidatePath("/beranda-artikel");
   revalidatePath("/categories");
+  revalidatePath("/products", "layout");
+  revalidatePath("/sitemap.xml");
 }
 
 function slugify(text: string) {
@@ -57,262 +68,338 @@ function parseOptionalInt(raw: FormDataEntryValue | null): number | null {
 }
 
 // ——— Product ———
-export async function createProduct(formData: FormData) {
-  await requireAdmin();
-  const sku = String(formData.get("sku") ?? "").trim();
-  const name = String(formData.get("name") ?? "").trim();
-  const categoryId = String(formData.get("categoryId") ?? "").trim();
-  if (!sku || !name || !categoryId) throw new Error("SKU, nama, dan kategori wajib diisi");
+export async function createProduct(formData: FormData): Promise<ActionResult> {
+  return runAdminAction(async () => {
+    await requireAdmin();
+    const sku = requireTrimmed(formData.get("sku"), "sku", "SKU", { min: 3, max: 50 });
+    if (!sku.ok) return sku.result;
+    const name = requireTrimmed(formData.get("name"), "name", "Nama", { min: 3, max: 150 });
+    if (!name.ok) return name.result;
+    const categoryId = requireTrimmed(formData.get("categoryId"), "categoryId", "Kategori");
+    if (!categoryId.ok) return categoryId.result;
+    const price = parseNonNegativeDecimal(formData.get("price"), "price", "Harga");
+    if (!price.ok) return price.result;
 
-  const slug = slugify(String(formData.get("slug") ?? "") || name);
-  const imageUrl = String(formData.get("image") ?? "").trim();
+    const slug = slugify(String(formData.get("slug") ?? "") || name.value);
+    const imageUrl = String(formData.get("image") ?? "").trim();
 
-  await prisma.product.create({
-    data: {
-      sku,
-      name,
-      slug,
-      categoryId,
-      stockStatus: parseStockStatus(String(formData.get("stockStatus") ?? "READY_STOCK")),
-      currency: String(formData.get("currency") ?? "IDR"),
-      price: parsePrice(String(formData.get("price") ?? "0")),
-      priceNote: String(formData.get("priceNote") ?? "") || null,
-      indentDays: parseOptionalInt(formData.get("indentDays")),
-      brochureUrl: String(formData.get("brochureUrl") ?? "") || null,
-      sopUrl: String(formData.get("sopUrl") ?? "") || null,
-      isPublished: formData.get("isPublished") === "on",
-      ...(imageUrl
-        ? {
-            media: {
-              create: {
-                url: imageUrl,
-                isPrimary: true,
-                sortOrder: 0,
+    await prisma.product.create({
+      data: {
+        sku: sku.value,
+        name: name.value,
+        slug,
+        categoryId: categoryId.value,
+        stockStatus: parseStockStatus(String(formData.get("stockStatus") ?? "READY_STOCK")),
+        currency: String(formData.get("currency") ?? "IDR") || "IDR",
+        price: parsePrice(price.value),
+        priceNote: String(formData.get("priceNote") ?? "") || null,
+        indentDays: parseOptionalInt(formData.get("indentDays")),
+        brochureUrl: String(formData.get("brochureUrl") ?? "") || null,
+        sopUrl: String(formData.get("sopUrl") ?? "") || null,
+        isPublished: formData.get("isPublished") === "on",
+        ...(imageUrl
+          ? {
+              media: {
+                create: {
+                  url: imageUrl,
+                  isPrimary: true,
+                  sortOrder: 0,
+                },
               },
-            },
-          }
-        : {}),
-    },
-  });
-  revalidatePath("/admin/products");
-  revalidateShop();
-}
-
-export async function updateProduct(formData: FormData) {
-  await requireAdmin();
-  const id = String(formData.get("id") ?? "");
-  if (!id) throw new Error("ID tidak valid");
-
-  const imageUrl = String(formData.get("image") ?? "").trim();
-
-  await prisma.product.update({
-    where: { id },
-    data: {
-      name: String(formData.get("name") ?? ""),
-      categoryId: String(formData.get("categoryId") ?? "") || undefined,
-      stockStatus: parseStockStatus(String(formData.get("stockStatus") ?? "READY_STOCK")),
-      price: parsePrice(String(formData.get("price") ?? "0")),
-      priceNote: String(formData.get("priceNote") ?? "") || null,
-      indentDays: parseOptionalInt(formData.get("indentDays")),
-      brochureUrl: String(formData.get("brochureUrl") ?? "") || null,
-      sopUrl: String(formData.get("sopUrl") ?? "") || null,
-      isPublished: formData.get("isPublished") === "on",
-    },
-  });
-
-  if (imageUrl) {
-    const primary = await prisma.productMedia.findFirst({
-      where: { productId: id, isPrimary: true },
+            }
+          : {}),
+      },
     });
-    if (primary) {
-      await prisma.productMedia.update({ where: { id: primary.id }, data: { url: imageUrl } });
-    } else {
-      await prisma.productMedia.create({
-        data: { productId: id, url: imageUrl, isPrimary: true, sortOrder: 0 },
-      });
-    }
-  }
-
-  revalidatePath("/admin/products");
-  revalidateShop();
+    revalidatePath("/admin/products");
+    revalidateShop();
+    return ok("Produk berhasil dibuat.");
+  }, "Produk berhasil dibuat.");
 }
 
-export async function deleteProduct(id: string) {
-  await requireAdmin();
-  await prisma.product.delete({ where: { id } });
-  revalidatePath("/admin/products");
-  revalidateShop();
+export async function updateProduct(formData: FormData): Promise<ActionResult> {
+  return runAdminAction(async () => {
+    await requireAdmin();
+    const id = String(formData.get("id") ?? "");
+    if (!id) return fail("ID tidak valid.");
+
+    const name = requireTrimmed(formData.get("name"), "name", "Nama", { min: 3, max: 150 });
+    if (!name.ok) return name.result;
+    const price = parseNonNegativeDecimal(formData.get("price"), "price", "Harga");
+    if (!price.ok) return price.result;
+
+    const imageUrl = String(formData.get("image") ?? "").trim();
+
+    await prisma.$transaction(async (tx) => {
+      await tx.product.update({
+        where: { id },
+        data: {
+          name: name.value,
+          categoryId: String(formData.get("categoryId") ?? "") || undefined,
+          stockStatus: parseStockStatus(String(formData.get("stockStatus") ?? "READY_STOCK")),
+          price: parsePrice(price.value),
+          priceNote: String(formData.get("priceNote") ?? "") || null,
+          indentDays: parseOptionalInt(formData.get("indentDays")),
+          brochureUrl: String(formData.get("brochureUrl") ?? "") || null,
+          sopUrl: String(formData.get("sopUrl") ?? "") || null,
+          isPublished: formData.get("isPublished") === "on",
+        },
+      });
+
+      if (imageUrl) {
+        const primary = await tx.productMedia.findFirst({
+          where: { productId: id, isPrimary: true },
+        });
+        if (primary) {
+          await tx.productMedia.update({ where: { id: primary.id }, data: { url: imageUrl } });
+        } else {
+          await tx.productMedia.create({
+            data: { productId: id, url: imageUrl, isPrimary: true, sortOrder: 0 },
+          });
+        }
+      }
+    });
+
+    revalidatePath("/admin/products");
+    revalidateShop();
+    return ok("Produk berhasil diperbarui.");
+  }, "Produk berhasil diperbarui.");
+}
+
+export async function deleteProduct(id: string): Promise<ActionResult> {
+  return runAdminAction(async () => {
+    await requireAdmin();
+    await prisma.product.delete({ where: { id } });
+    revalidatePath("/admin/products");
+    revalidateShop();
+    return ok("Produk berhasil dihapus.");
+  }, "Produk berhasil dihapus.");
 }
 
 // ——— Category ———
-export async function createCategory(formData: FormData) {
-  await requireAdmin();
-  const slug = String(formData.get("slug") ?? "").trim();
-  const name = String(formData.get("name") ?? "").trim();
-  if (!slug || !name) throw new Error("Slug dan nama wajib");
+export async function createCategory(formData: FormData): Promise<ActionResult> {
+  return runAdminAction(async () => {
+    await requireAdmin();
+    const slug = requireTrimmed(formData.get("slug"), "slug", "Slug", { min: 2, max: 80 });
+    if (!slug.ok) return slug.result;
+    const name = requireTrimmed(formData.get("name"), "name", "Nama", { min: 2, max: 150 });
+    if (!name.ok) return name.result;
 
-  const parentId = String(formData.get("parentId") ?? "").trim() || null;
+    const parentId = String(formData.get("parentId") ?? "").trim() || null;
 
-  await prisma.category.create({
-    data: {
-      slug,
-      name,
-      icon: String(formData.get("icon") ?? "category") || null,
-      parentId,
-    },
-  });
-  revalidatePath("/admin/categories");
+    await prisma.category.create({
+      data: {
+        slug: slug.value,
+        name: name.value,
+        icon: String(formData.get("icon") ?? "category") || null,
+        parentId,
+      },
+    });
+    revalidatePath("/admin/categories");
+    revalidateShop();
+    return ok("Kategori berhasil dibuat.");
+  }, "Kategori berhasil dibuat.");
 }
 
-export async function updateCategory(formData: FormData) {
-  await requireAdmin();
-  const id = String(formData.get("id") ?? "");
-  const parentId = String(formData.get("parentId") ?? "").trim() || null;
+export async function updateCategory(formData: FormData): Promise<ActionResult> {
+  return runAdminAction(async () => {
+    await requireAdmin();
+    const id = String(formData.get("id") ?? "");
+    if (!id) return fail("ID tidak valid.");
+    const slug = requireTrimmed(formData.get("slug"), "slug", "Slug", { min: 2, max: 80 });
+    if (!slug.ok) return slug.result;
+    const name = requireTrimmed(formData.get("name"), "name", "Nama", { min: 2, max: 150 });
+    if (!name.ok) return name.result;
+    const parentId = String(formData.get("parentId") ?? "").trim() || null;
 
-  await prisma.category.update({
-    where: { id },
-    data: {
-      slug: String(formData.get("slug") ?? ""),
-      name: String(formData.get("name") ?? ""),
-      icon: String(formData.get("icon") ?? "category") || null,
-      parentId,
-    },
-  });
-  revalidatePath("/admin/categories");
+    await prisma.category.update({
+      where: { id },
+      data: {
+        slug: slug.value,
+        name: name.value,
+        icon: String(formData.get("icon") ?? "category") || null,
+        parentId,
+      },
+    });
+    revalidatePath("/admin/categories");
+    revalidateShop();
+    return ok("Kategori berhasil diperbarui.");
+  }, "Kategori berhasil diperbarui.");
 }
 
-export async function deleteCategory(id: string) {
-  await requireAdmin();
-  await prisma.category.delete({ where: { id } });
-  revalidatePath("/admin/categories");
+export async function deleteCategory(id: string): Promise<ActionResult> {
+  return runAdminAction(async () => {
+    await requireAdmin();
+    await prisma.category.delete({ where: { id } });
+    revalidatePath("/admin/categories");
+    revalidateShop();
+    return ok("Kategori berhasil dihapus.");
+  }, "Kategori berhasil dihapus.");
 }
 
 // ——— Article ———
-export async function createArticle(formData: FormData) {
-  await requireAdmin();
-  const title = String(formData.get("title") ?? "").trim();
-  const slug =
-    String(formData.get("slug") ?? "").trim() ||
-    title.toLowerCase().replace(/\s+/g, "-").slice(0, 80);
-  if (!title) throw new Error("Judul wajib");
+export async function createArticle(formData: FormData): Promise<ActionResult> {
+  return runAdminAction(async () => {
+    await requireAdmin();
+    const title = requireTrimmed(formData.get("title"), "title", "Judul", { min: 3, max: 200 });
+    if (!title.ok) return title.result;
+    const slug =
+      String(formData.get("slug") ?? "").trim() ||
+      title.value.toLowerCase().replace(/\s+/g, "-").slice(0, 80);
 
-  await prisma.article.create({
-    data: {
-      title,
-      slug,
-      category: String(formData.get("category") ?? "Umum"),
-      imageUrl: String(formData.get("imageUrl") ?? ""),
-      publishedAt: new Date(String(formData.get("publishedAt") ?? new Date().toISOString())),
-      readMinutes: parseInt(String(formData.get("readMinutes") ?? "5"), 10) || 5,
-      published: formData.get("published") === "on",
-    },
-  });
-  revalidatePath("/admin/articles");
-  revalidatePath("/beranda-artikel");
+    await prisma.article.create({
+      data: {
+        title: title.value,
+        slug,
+        category: String(formData.get("category") ?? "Umum"),
+        imageUrl: String(formData.get("imageUrl") ?? ""),
+        publishedAt: new Date(String(formData.get("publishedAt") ?? new Date().toISOString())),
+        readMinutes: parseInt(String(formData.get("readMinutes") ?? "5"), 10) || 5,
+        published: formData.get("published") === "on",
+      },
+    });
+    revalidatePath("/admin/articles");
+    revalidatePath("/beranda-artikel");
+    return ok("Artikel berhasil dibuat.");
+  }, "Artikel berhasil dibuat.");
 }
 
-export async function updateArticle(formData: FormData) {
-  await requireAdmin();
-  const id = String(formData.get("id") ?? "");
-  const imageUrl = String(formData.get("imageUrl") ?? "").trim();
+export async function updateArticle(formData: FormData): Promise<ActionResult> {
+  return runAdminAction(async () => {
+    await requireAdmin();
+    const id = String(formData.get("id") ?? "");
+    if (!id) return fail("ID tidak valid.");
+    const title = requireTrimmed(formData.get("title"), "title", "Judul", { min: 3, max: 200 });
+    if (!title.ok) return title.result;
+    const imageUrl = String(formData.get("imageUrl") ?? "").trim();
 
-  await prisma.article.update({
-    where: { id },
-    data: {
-      title: String(formData.get("title") ?? ""),
-      category: String(formData.get("category") ?? ""),
-      published: formData.get("published") === "on",
-      readMinutes: parseInt(String(formData.get("readMinutes") ?? "5"), 10) || 5,
-      ...(imageUrl ? { imageUrl } : {}),
-    },
-  });
-  revalidatePath("/admin/articles");
-  revalidatePath("/beranda-artikel");
+    await prisma.article.update({
+      where: { id },
+      data: {
+        title: title.value,
+        category: String(formData.get("category") ?? ""),
+        published: formData.get("published") === "on",
+        readMinutes: parseInt(String(formData.get("readMinutes") ?? "5"), 10) || 5,
+        ...(imageUrl ? { imageUrl } : {}),
+      },
+    });
+    revalidatePath("/admin/articles");
+    revalidatePath("/beranda-artikel");
+    return ok("Artikel berhasil diperbarui.");
+  }, "Artikel berhasil diperbarui.");
 }
 
-export async function deleteArticle(id: string) {
-  await requireAdmin();
-  await prisma.article.delete({ where: { id } });
-  revalidatePath("/admin/articles");
-  revalidatePath("/beranda-artikel");
+export async function deleteArticle(id: string): Promise<ActionResult> {
+  return runAdminAction(async () => {
+    await requireAdmin();
+    await prisma.article.delete({ where: { id } });
+    revalidatePath("/admin/articles");
+    revalidatePath("/beranda-artikel");
+    return ok("Artikel berhasil dihapus.");
+  }, "Artikel berhasil dihapus.");
 }
 
-// ——— User ———
-export async function createUser(formData: FormData) {
-  await requireSuperAdmin();
-  const username = String(formData.get("username") ?? "").trim();
-  const password = String(formData.get("password") ?? "");
-  const email = String(formData.get("email") ?? "").trim() || `${username}@indahmesin.local`;
-  if (!username || password.length < 6) throw new Error("Username dan password (min 6) wajib");
+// ——— User (admin accounts) ———
+export async function createUser(formData: FormData): Promise<ActionResult> {
+  return runAdminAction(async () => {
+    await requireSuperAdmin();
+    const username = requireTrimmed(formData.get("username"), "username", "Username", {
+      min: 3,
+      max: 50,
+    });
+    if (!username.ok) return username.result;
+    const password = String(formData.get("password") ?? "");
+    if (password.length < 6) {
+      return fail("Password minimal 6 karakter.", {
+        fieldErrors: { password: "Password minimal 6 karakter." },
+      });
+    }
+    const email =
+      String(formData.get("email") ?? "").trim() || `${username.value}@indahmesin.local`;
 
-  const hash = await bcrypt.hash(password, 10);
-  await prisma.admin.create({
-    data: {
-      username,
-      email,
-      password: hash,
-      name: String(formData.get("name") ?? "") || username,
-      role: String(formData.get("role") ?? "ADMIN") as AdminRole,
-    },
-  });
-  revalidatePath("/admin/users");
-  revalidatePath("/admin/companies");
+    const hash = await bcrypt.hash(password, 10);
+    await prisma.admin.create({
+      data: {
+        username: username.value,
+        email,
+        password: hash,
+        name: String(formData.get("name") ?? "") || username.value,
+        role: String(formData.get("role") ?? "ADMIN") as AdminRole,
+      },
+    });
+    revalidatePath("/admin/users");
+    revalidatePath("/admin/companies");
+    return ok("Admin berhasil dibuat.");
+  }, "Admin berhasil dibuat.");
 }
 
-export async function updateCustomer(formData: FormData) {
-  await requireAdmin();
-  const id = String(formData.get("id") ?? "");
-  const verified = formData.get("verifiedBuyer") === "on";
+export async function updateCustomer(formData: FormData): Promise<ActionResult> {
+  return runAdminAction(async () => {
+    await requireAdmin();
+    const id = String(formData.get("id") ?? "");
+    if (!id) return fail("ID tidak valid.");
+    const verified = formData.get("verifiedBuyer") === "on";
 
-  await prisma.user.update({
-    where: { id },
-    data: {
-      name: String(formData.get("name") ?? "") || undefined,
-      email: String(formData.get("email") ?? "") || undefined,
-      phone: String(formData.get("phone") ?? "") || null,
-      companyId: String(formData.get("companyId") ?? "") || null,
-      companyName: String(formData.get("companyName") ?? "") || null,
-      customBuyerId: String(formData.get("customBuyerId") ?? "") || null,
-      position: String(formData.get("position") ?? "") || null,
-      verificationStatus: verified ? "VERIFIED" : "UNVERIFIED",
-    },
-  });
-  revalidatePath("/admin/companies");
+    await prisma.user.update({
+      where: { id },
+      data: {
+        name: String(formData.get("name") ?? "") || undefined,
+        email: String(formData.get("email") ?? "") || undefined,
+        phone: String(formData.get("phone") ?? "") || null,
+        companyId: String(formData.get("companyId") ?? "") || null,
+        companyName: String(formData.get("companyName") ?? "") || null,
+        customBuyerId: String(formData.get("customBuyerId") ?? "") || null,
+        position: String(formData.get("position") ?? "") || null,
+        verificationStatus: verified ? "VERIFIED" : "UNVERIFIED",
+      },
+    });
+    revalidatePath("/admin/companies");
+    return ok("Pelanggan berhasil diperbarui.");
+  }, "Pelanggan berhasil diperbarui.");
 }
 
-export async function deleteCustomer(id: string) {
-  await requireAdmin();
-  const user = await prisma.user.findFirst({
-    where: { id },
-  });
-  if (!user) throw new Error("Pelanggan tidak ditemukan");
-  await prisma.user.delete({ where: { id } });
-  revalidatePath("/admin/companies");
+export async function deleteCustomer(id: string): Promise<ActionResult> {
+  return runAdminAction(async () => {
+    await requireAdmin();
+    const user = await prisma.user.findFirst({ where: { id } });
+    if (!user) return fail("Pelanggan tidak ditemukan.");
+    await prisma.user.delete({ where: { id } });
+    revalidatePath("/admin/companies");
+    return ok("Pelanggan berhasil dihapus.");
+  }, "Pelanggan berhasil dihapus.");
 }
 
-export async function deleteUser(id: string) {
-  const session = await requireSuperAdmin();
-  if (session.user.id === id) throw new Error("Tidak dapat menghapus akun sendiri");
-  await prisma.admin.delete({ where: { id } });
-  revalidatePath("/admin/users");
-  revalidatePath("/admin/companies");
+export async function deleteUser(id: string): Promise<ActionResult> {
+  return runAdminAction(async () => {
+    const session = await requireSuperAdmin();
+    if (session.user.id === id) return fail("Tidak dapat menghapus akun sendiri.");
+    await prisma.admin.delete({ where: { id } });
+    revalidatePath("/admin/users");
+    revalidatePath("/admin/companies");
+    return ok("Admin berhasil dihapus.");
+  }, "Admin berhasil dihapus.");
 }
 
 // ——— Saved items (favorites) ———
-export async function createSavedItem(formData: FormData) {
-  await requireAdmin();
-  const userId = String(formData.get("userId") ?? "");
-  const productId = String(formData.get("productId") ?? "");
-  if (!userId || !productId) throw new Error("User dan produk wajib");
+export async function createSavedItem(formData: FormData): Promise<ActionResult> {
+  return runAdminAction(async () => {
+    await requireAdmin();
+    const userId = String(formData.get("userId") ?? "");
+    const productId = String(formData.get("productId") ?? "");
+    if (!userId || !productId) return fail("User dan produk wajib.");
 
-  await prisma.savedItem.create({ data: { userId, productId } });
-  revalidatePath("/admin/favorites");
+    await prisma.savedItem.create({ data: { userId, productId } });
+    revalidatePath("/admin/favorites");
+    return ok("Favorit berhasil ditambahkan.");
+  }, "Favorit berhasil ditambahkan.");
 }
 
-export async function deleteSavedItem(id: string) {
-  await requireAdmin();
-  await prisma.savedItem.delete({ where: { id } });
-  revalidatePath("/admin/favorites");
+export async function deleteSavedItem(id: string): Promise<ActionResult> {
+  return runAdminAction(async () => {
+    await requireAdmin();
+    await prisma.savedItem.delete({ where: { id } });
+    revalidatePath("/admin/favorites");
+    return ok("Favorit berhasil dihapus.");
+  }, "Favorit berhasil dihapus.");
 }
 
 /** @deprecated use createSavedItem */
@@ -321,235 +408,335 @@ export const createFavorite = createSavedItem;
 export const deleteFavorite = deleteSavedItem;
 
 // ——— RFQ ———
-export async function updateRfqRequest(formData: FormData) {
-  await requireAdmin();
-  const id = String(formData.get("id") ?? "");
-  await prisma.rfqRequest.update({
-    where: { id },
-    data: {
-      status: String(formData.get("status") ?? "PENDING") as RfqStatus,
-      picName: String(formData.get("picName") ?? ""),
-      companyName: String(formData.get("companyName") ?? ""),
-    },
-  });
-  revalidatePath("/admin/orders");
+export async function updateRfqRequest(formData: FormData): Promise<ActionResult> {
+  return runAdminAction(async () => {
+    await requireAdmin();
+    const id = String(formData.get("id") ?? "");
+    if (!id) return fail("ID tidak valid.");
+    await prisma.rfqRequest.update({
+      where: { id },
+      data: {
+        status: String(formData.get("status") ?? "PENDING") as RfqStatus,
+        picName: String(formData.get("picName") ?? ""),
+        companyName: String(formData.get("companyName") ?? ""),
+      },
+    });
+    revalidatePath("/admin/orders");
+    return ok("RFQ berhasil diperbarui.");
+  }, "RFQ berhasil diperbarui.");
 }
 
-export async function deleteRfqRequest(id: string) {
-  await requireAdmin();
-  await prisma.rfqRequest.delete({ where: { id } });
-  revalidatePath("/admin/orders");
+export async function deleteRfqRequest(id: string): Promise<ActionResult> {
+  return runAdminAction(async () => {
+    await requireAdmin();
+    await prisma.rfqRequest.delete({ where: { id } });
+    revalidatePath("/admin/orders");
+    return ok("RFQ berhasil dihapus.");
+  }, "RFQ berhasil dihapus.");
 }
 
 export const updatePurchaseOrder = updateRfqRequest;
 export const deletePurchaseOrder = deleteRfqRequest;
 
 // ——— FAQ ———
-export async function createFaq(formData: FormData) {
-  await requireAdmin();
-  const question = String(formData.get("question") ?? "").trim();
-  const answer = String(formData.get("answer") ?? "").trim();
-  if (!question || !answer) throw new Error("Pertanyaan dan jawaban wajib");
+export async function createFaq(formData: FormData): Promise<ActionResult> {
+  return runAdminAction(async () => {
+    await requireAdmin();
+    const question = requireTrimmed(formData.get("question"), "question", "Pertanyaan", {
+      min: 3,
+      max: 500,
+    });
+    if (!question.ok) return question.result;
+    const answer = requireTrimmed(formData.get("answer"), "answer", "Jawaban", { min: 3 });
+    if (!answer.ok) return answer.result;
 
-  await prisma.faq.create({
-    data: {
-      question,
-      answer,
-      sortOrder: parseInt(String(formData.get("sortOrder") ?? "0"), 10) || 0,
-      published: formData.get("published") === "on",
-    },
-  });
-  revalidatePath("/admin/faq");
+    await prisma.faq.create({
+      data: {
+        question: question.value,
+        answer: answer.value,
+        sortOrder: parseInt(String(formData.get("sortOrder") ?? "0"), 10) || 0,
+        published: formData.get("published") === "on",
+      },
+    });
+    revalidatePath("/admin/faq");
+    return ok("FAQ berhasil dibuat.");
+  }, "FAQ berhasil dibuat.");
 }
 
-export async function updateFaq(formData: FormData) {
-  await requireAdmin();
-  const id = String(formData.get("id") ?? "");
-  await prisma.faq.update({
-    where: { id },
-    data: {
-      question: String(formData.get("question") ?? ""),
-      answer: String(formData.get("answer") ?? ""),
-      sortOrder: parseInt(String(formData.get("sortOrder") ?? "0"), 10) || 0,
-      published: formData.get("published") === "on",
-    },
-  });
-  revalidatePath("/admin/faq");
+export async function updateFaq(formData: FormData): Promise<ActionResult> {
+  return runAdminAction(async () => {
+    await requireAdmin();
+    const id = String(formData.get("id") ?? "");
+    if (!id) return fail("ID tidak valid.");
+    const question = requireTrimmed(formData.get("question"), "question", "Pertanyaan", {
+      min: 3,
+      max: 500,
+    });
+    if (!question.ok) return question.result;
+    const answer = requireTrimmed(formData.get("answer"), "answer", "Jawaban", { min: 3 });
+    if (!answer.ok) return answer.result;
+
+    await prisma.faq.update({
+      where: { id },
+      data: {
+        question: question.value,
+        answer: answer.value,
+        sortOrder: parseInt(String(formData.get("sortOrder") ?? "0"), 10) || 0,
+        published: formData.get("published") === "on",
+      },
+    });
+    revalidatePath("/admin/faq");
+    return ok("FAQ berhasil diperbarui.");
+  }, "FAQ berhasil diperbarui.");
 }
 
-export async function deleteFaq(id: string) {
-  await requireAdmin();
-  await prisma.faq.delete({ where: { id } });
-  revalidatePath("/admin/faq");
+export async function deleteFaq(id: string): Promise<ActionResult> {
+  return runAdminAction(async () => {
+    await requireAdmin();
+    await prisma.faq.delete({ where: { id } });
+    revalidatePath("/admin/faq");
+    return ok("FAQ berhasil dihapus.");
+  }, "FAQ berhasil dihapus.");
 }
 
 // ——— Review ———
-export async function createReview(formData: FormData) {
-  await requireAdmin();
-  const authorName = String(formData.get("authorName") ?? "").trim();
-  const content = String(formData.get("content") ?? "").trim();
-  if (!authorName || !content) throw new Error("Nama dan ulasan wajib");
+export async function createReview(formData: FormData): Promise<ActionResult> {
+  return runAdminAction(async () => {
+    await requireAdmin();
+    const authorName = requireTrimmed(formData.get("authorName"), "authorName", "Nama", {
+      min: 2,
+      max: 100,
+    });
+    if (!authorName.ok) return authorName.result;
+    const content = requireTrimmed(formData.get("content"), "content", "Ulasan", { min: 3 });
+    if (!content.ok) return content.result;
 
-  await prisma.productReview.create({
-    data: {
-      authorName,
-      content,
-      productId: String(formData.get("productId") ?? "") || null,
-      rating: Math.min(5, Math.max(1, parseInt(String(formData.get("rating") ?? "5"), 10) || 5)),
-      published: formData.get("published") === "on",
-    },
-  });
-  revalidatePath("/admin/reviews");
+    await prisma.productReview.create({
+      data: {
+        authorName: authorName.value,
+        content: content.value,
+        productId: String(formData.get("productId") ?? "") || null,
+        rating: Math.min(5, Math.max(1, parseInt(String(formData.get("rating") ?? "5"), 10) || 5)),
+        published: formData.get("published") === "on",
+      },
+    });
+    revalidatePath("/admin/reviews");
+    return ok("Ulasan berhasil dibuat.");
+  }, "Ulasan berhasil dibuat.");
 }
 
-export async function updateReview(formData: FormData) {
-  await requireAdmin();
-  const id = String(formData.get("id") ?? "");
-  await prisma.productReview.update({
-    where: { id },
-    data: {
-      authorName: String(formData.get("authorName") ?? ""),
-      content: String(formData.get("content") ?? ""),
-      productId: String(formData.get("productId") ?? "") || null,
-      rating: Math.min(5, Math.max(1, parseInt(String(formData.get("rating") ?? "5"), 10) || 5)),
-      published: formData.get("published") === "on",
-    },
-  });
-  revalidatePath("/admin/reviews");
+export async function updateReview(formData: FormData): Promise<ActionResult> {
+  return runAdminAction(async () => {
+    await requireAdmin();
+    const id = String(formData.get("id") ?? "");
+    if (!id) return fail("ID tidak valid.");
+    const authorName = requireTrimmed(formData.get("authorName"), "authorName", "Nama", {
+      min: 2,
+      max: 100,
+    });
+    if (!authorName.ok) return authorName.result;
+    const content = requireTrimmed(formData.get("content"), "content", "Ulasan", { min: 3 });
+    if (!content.ok) return content.result;
+
+    await prisma.productReview.update({
+      where: { id },
+      data: {
+        authorName: authorName.value,
+        content: content.value,
+        productId: String(formData.get("productId") ?? "") || null,
+        rating: Math.min(5, Math.max(1, parseInt(String(formData.get("rating") ?? "5"), 10) || 5)),
+        published: formData.get("published") === "on",
+      },
+    });
+    revalidatePath("/admin/reviews");
+    return ok("Ulasan berhasil diperbarui.");
+  }, "Ulasan berhasil diperbarui.");
 }
 
-export async function deleteReview(id: string) {
-  await requireAdmin();
-  await prisma.productReview.delete({ where: { id } });
-  revalidatePath("/admin/reviews");
+export async function deleteReview(id: string): Promise<ActionResult> {
+  return runAdminAction(async () => {
+    await requireAdmin();
+    await prisma.productReview.delete({ where: { id } });
+    revalidatePath("/admin/reviews");
+    return ok("Ulasan berhasil dihapus.");
+  }, "Ulasan berhasil dihapus.");
 }
 
-export async function createCompany(formData: FormData) {
-  await requireAdmin();
-  const companyName = String(formData.get("companyName") ?? "").trim();
-  if (!companyName) throw new Error("Nama perusahaan wajib");
+export async function createCompany(formData: FormData): Promise<ActionResult> {
+  return runAdminAction(async () => {
+    await requireAdmin();
+    const companyName = requireTrimmed(formData.get("companyName"), "companyName", "Nama perusahaan", {
+      min: 2,
+      max: 200,
+    });
+    if (!companyName.ok) return companyName.result;
 
-  await prisma.company.create({
-    data: {
-      companyName,
-      type: (String(formData.get("type") ?? "BUYER") as CompanyType) || "BUYER",
-      npwpNumber: String(formData.get("npwpNumber") ?? "") || null,
-      nibNumber: String(formData.get("nibNumber") ?? "") || null,
-      isVerified: formData.get("isVerified") === "on",
-    },
-  });
-  revalidatePath("/admin/companies");
-  revalidatePath("/admin/companies");
+    await prisma.company.create({
+      data: {
+        companyName: companyName.value,
+        type: (String(formData.get("type") ?? "BUYER") as CompanyType) || "BUYER",
+        npwpNumber: String(formData.get("npwpNumber") ?? "") || null,
+        nibNumber: String(formData.get("nibNumber") ?? "") || null,
+        isVerified: formData.get("isVerified") === "on",
+      },
+    });
+    revalidatePath("/admin/companies");
+    return ok("Perusahaan berhasil dibuat.");
+  }, "Perusahaan berhasil dibuat.");
 }
 
-export async function updateCompany(formData: FormData) {
-  await requireAdmin();
-  const id = String(formData.get("id") ?? "");
-  if (!id) throw new Error("ID tidak valid");
+export async function updateCompany(formData: FormData): Promise<ActionResult> {
+  return runAdminAction(async () => {
+    await requireAdmin();
+    const id = String(formData.get("id") ?? "");
+    if (!id) return fail("ID tidak valid.");
+    const companyName = requireTrimmed(formData.get("companyName"), "companyName", "Nama perusahaan", {
+      min: 2,
+      max: 200,
+    });
+    if (!companyName.ok) return companyName.result;
 
-  await prisma.company.update({
-    where: { id },
-    data: {
-      companyName: String(formData.get("companyName") ?? ""),
-      type: (String(formData.get("type") ?? "BUYER") as CompanyType) || "BUYER",
-      npwpNumber: String(formData.get("npwpNumber") ?? "") || null,
-      nibNumber: String(formData.get("nibNumber") ?? "") || null,
-      isVerified: formData.get("isVerified") === "on",
-    },
-  });
-  revalidatePath("/admin/companies");
-  revalidatePath("/admin/companies");
+    await prisma.company.update({
+      where: { id },
+      data: {
+        companyName: companyName.value,
+        type: (String(formData.get("type") ?? "BUYER") as CompanyType) || "BUYER",
+        npwpNumber: String(formData.get("npwpNumber") ?? "") || null,
+        nibNumber: String(formData.get("nibNumber") ?? "") || null,
+        isVerified: formData.get("isVerified") === "on",
+      },
+    });
+    revalidatePath("/admin/companies");
+    return ok("Perusahaan berhasil diperbarui.");
+  }, "Perusahaan berhasil diperbarui.");
 }
 
-export async function deleteCompany(id: string) {
-  await requireAdmin();
-  await prisma.company.delete({ where: { id } });
-  revalidatePath("/admin/companies");
+export async function deleteCompany(id: string): Promise<ActionResult> {
+  return runAdminAction(async () => {
+    await requireAdmin();
+    await prisma.company.delete({ where: { id } });
+    revalidatePath("/admin/companies");
+    return ok("Perusahaan berhasil dihapus.");
+  }, "Perusahaan berhasil dihapus.");
 }
 
 // ——— Company addresses ———
-export async function createCompanyAddress(formData: FormData) {
-  await requireAdmin();
-  const companyId = String(formData.get("companyId") ?? "");
-  const label = String(formData.get("label") ?? "").trim();
-  if (!companyId || !label) throw new Error("Perusahaan dan label wajib");
+export async function createCompanyAddress(formData: FormData): Promise<ActionResult> {
+  return runAdminAction(async () => {
+    await requireAdmin();
+    const companyId = String(formData.get("companyId") ?? "");
+    const label = requireTrimmed(formData.get("label"), "label", "Label", { min: 2, max: 100 });
+    if (!companyId || !label.ok) {
+      return label.ok === false ? label.result : fail("Perusahaan dan label wajib.");
+    }
 
-  await prisma.companyAddress.create({
-    data: {
-      companyId,
-      label,
-      addressDetail: String(formData.get("addressDetail") ?? ""),
-      city: String(formData.get("city") ?? ""),
-      postalCode: String(formData.get("postalCode") ?? "") || null,
-      isPrimary: formData.get("isPrimary") === "on",
-    },
-  });
-  revalidatePath("/admin/companies");
+    await prisma.companyAddress.create({
+      data: {
+        companyId,
+        label: label.value,
+        addressDetail: String(formData.get("addressDetail") ?? ""),
+        city: String(formData.get("city") ?? ""),
+        postalCode: String(formData.get("postalCode") ?? "") || null,
+        isPrimary: formData.get("isPrimary") === "on",
+      },
+    });
+    revalidatePath("/admin/companies");
+    return ok("Alamat berhasil ditambahkan.");
+  }, "Alamat berhasil ditambahkan.");
 }
 
-export async function updateCompanyAddress(formData: FormData) {
-  await requireAdmin();
-  const id = String(formData.get("id") ?? "");
-  await prisma.companyAddress.update({
-    where: { id },
-    data: {
-      label: String(formData.get("label") ?? ""),
-      addressDetail: String(formData.get("addressDetail") ?? ""),
-      city: String(formData.get("city") ?? ""),
-      postalCode: String(formData.get("postalCode") ?? "") || null,
-      isPrimary: formData.get("isPrimary") === "on",
-    },
-  });
-  revalidatePath("/admin/companies");
+export async function updateCompanyAddress(formData: FormData): Promise<ActionResult> {
+  return runAdminAction(async () => {
+    await requireAdmin();
+    const id = String(formData.get("id") ?? "");
+    if (!id) return fail("ID tidak valid.");
+    const label = requireTrimmed(formData.get("label"), "label", "Label", { min: 2, max: 100 });
+    if (!label.ok) return label.result;
+
+    await prisma.companyAddress.update({
+      where: { id },
+      data: {
+        label: label.value,
+        addressDetail: String(formData.get("addressDetail") ?? ""),
+        city: String(formData.get("city") ?? ""),
+        postalCode: String(formData.get("postalCode") ?? "") || null,
+        isPrimary: formData.get("isPrimary") === "on",
+      },
+    });
+    revalidatePath("/admin/companies");
+    return ok("Alamat berhasil diperbarui.");
+  }, "Alamat berhasil diperbarui.");
 }
 
-export async function deleteCompanyAddress(id: string) {
-  await requireAdmin();
-  await prisma.companyAddress.delete({ where: { id } });
-  revalidatePath("/admin/companies");
+export async function deleteCompanyAddress(id: string): Promise<ActionResult> {
+  return runAdminAction(async () => {
+    await requireAdmin();
+    await prisma.companyAddress.delete({ where: { id } });
+    revalidatePath("/admin/companies");
+    return ok("Alamat berhasil dihapus.");
+  }, "Alamat berhasil dihapus.");
 }
 
 // ——— Orders (PO) ———
-export async function updateOrder(formData: FormData) {
-  await requireAdmin();
-  const id = String(formData.get("id") ?? "");
-  await prisma.order.update({
-    where: { id },
-    data: {
-      status: String(formData.get("status") ?? "DRAFT") as OrderStatus,
-      notes: String(formData.get("notes") ?? "") || null,
-    },
-  });
-  revalidatePath("/admin/orders");
+export async function updateOrder(formData: FormData): Promise<ActionResult> {
+  return runAdminAction(async () => {
+    await requireAdmin();
+    const id = String(formData.get("id") ?? "");
+    if (!id) return fail("ID tidak valid.");
+    await prisma.order.update({
+      where: { id },
+      data: {
+        status: String(formData.get("status") ?? "DRAFT") as OrderStatus,
+        notes: String(formData.get("notes") ?? "") || null,
+      },
+    });
+    revalidatePath("/admin/orders");
+    return ok("Order berhasil diperbarui.");
+  }, "Order berhasil diperbarui.");
 }
 
-export async function deleteOrder(id: string) {
-  await requireAdmin();
-  await prisma.order.delete({ where: { id } });
-  revalidatePath("/admin/orders");
+export async function deleteOrder(id: string): Promise<ActionResult> {
+  return runAdminAction(async () => {
+    await requireAdmin();
+    await prisma.order.delete({ where: { id } });
+    revalidatePath("/admin/orders");
+    return ok("Order berhasil dihapus.");
+  }, "Order berhasil dihapus.");
 }
 
 // ——— Archive documents ———
-export async function createArchiveDocument(formData: FormData) {
-  await requireAdmin();
-  const documentName = String(formData.get("documentName") ?? "").trim();
-  const fileUrl = String(formData.get("fileUrl") ?? "").trim();
-  if (!documentName || !fileUrl) throw new Error("Nama dan URL file wajib");
+export async function createArchiveDocument(formData: FormData): Promise<ActionResult> {
+  return runAdminAction(async () => {
+    await requireAdmin();
+    const documentName = requireTrimmed(
+      formData.get("documentName"),
+      "documentName",
+      "Nama dokumen",
+      { min: 2, max: 200 }
+    );
+    if (!documentName.ok) return documentName.result;
+    const fileUrl = requireTrimmed(formData.get("fileUrl"), "fileUrl", "URL file");
+    if (!fileUrl.ok) return fileUrl.result;
 
-  await prisma.archiveDocument.create({
-    data: {
-      documentName,
-      fileUrl,
-      documentType: String(formData.get("documentType") ?? "PO_DRAFT") as ArchiveDocumentType,
-      userId: String(formData.get("userId") ?? "") || null,
-      orderId: String(formData.get("orderId") ?? "") || null,
-    },
-  });
-  revalidatePath("/admin/documents");
+    await prisma.archiveDocument.create({
+      data: {
+        documentName: documentName.value,
+        fileUrl: fileUrl.value,
+        documentType: String(formData.get("documentType") ?? "PO_DRAFT") as ArchiveDocumentType,
+        userId: String(formData.get("userId") ?? "") || null,
+        orderId: String(formData.get("orderId") ?? "") || null,
+      },
+    });
+    revalidatePath("/admin/documents");
+    return ok("Dokumen berhasil dibuat.");
+  }, "Dokumen berhasil dibuat.");
 }
 
-export async function deleteArchiveDocument(id: string) {
-  await requireAdmin();
-  await prisma.archiveDocument.delete({ where: { id } });
-  revalidatePath("/admin/documents");
+export async function deleteArchiveDocument(id: string): Promise<ActionResult> {
+  return runAdminAction(async () => {
+    await requireAdmin();
+    await prisma.archiveDocument.delete({ where: { id } });
+    revalidatePath("/admin/documents");
+    return ok("Dokumen berhasil dihapus.");
+  }, "Dokumen berhasil dihapus.");
 }

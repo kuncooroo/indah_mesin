@@ -34,7 +34,7 @@ export function ContactPageView({ site }: { site: SiteSettingsView }) {
           priority
         />
         <div className="absolute bottom-0 left-0 z-20 p-margin-mobile text-white">
-          <h2 className="mb-2 font-headline-lg text-headline-lg">Visit Our Showroom</h2>
+          <h1 className="mb-2 font-headline-lg text-headline-lg">Visit Our Showroom</h1>
           <p className="max-w-2xl font-body-lg text-body-lg opacity-90">
             Experience precision engineering in person. Our technical experts are ready to provide
             live demonstrations.

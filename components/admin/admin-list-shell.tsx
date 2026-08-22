@@ -8,6 +8,7 @@ type AdminListShellProps = {
   page: number;
   pageSize: number;
   total: number;
+  sort?: string;
   searchPlaceholder?: string;
   createAction?: React.ReactNode;
   children: React.ReactNode;
@@ -19,6 +20,7 @@ export function AdminListShell({
   page,
   pageSize,
   total,
+  sort,
   searchPlaceholder,
   createAction,
   children,
@@ -36,13 +38,16 @@ export function AdminListShell({
         {createAction ? <div className="shrink-0">{createAction}</div> : null}
       </div>
       {children}
-      <AdminPagination
-        basePath={basePath}
-        total={total}
-        page={page}
-        pageSize={pageSize}
-        q={q}
-      />
+      <Suspense fallback={null}>
+        <AdminPagination
+          basePath={basePath}
+          total={total}
+          page={page}
+          pageSize={pageSize}
+          q={q}
+          sort={sort}
+        />
+      </Suspense>
     </div>
   );
 }

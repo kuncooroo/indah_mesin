@@ -2,6 +2,8 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { findProductById } from "@/lib/storefront/catalog";
 import { ProductDetailView } from "@/components/storefront/product-detail-view";
+import { JsonLd } from "@/components/seo/json-ld";
+import { absoluteUrl, buildPageMetadata } from "@/lib/seo";
 
 type Props = {
   params: Promise<{ id: string }>;
@@ -11,29 +13,26 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { id } = await params;
   const product = await findProductById(id);
   if (!product) {
-    return { title: "Produk tidak ditemukan" };
+    return {
+      title: "Product not found",
+      robots: { index: false, follow: false },
+    };
   }
 
   const title = `${product.name} (${product.sku})`;
   const description =
     product.subtitle ||
     product.features?.slice(0, 2).join(" ") ||
-    `Spesifikasi dan penawaran ${product.name} — MesinBagus by Indah Mesin.`;
+    `Specifications and quotation for ${product.name} — MesinBagus by Indah Mesin.`;
 
-  const url = `/products/${product.id}`;
-
-  return {
+  return buildPageMetadata({
     title,
     description,
-    alternates: { canonical: url },
-    openGraph: {
-      title,
-      description,
-      url,
-      type: "website",
-      images: product.image ? [{ url: product.image, alt: product.name }] : undefined,
-    },
-  };
+    path: `/products/${product.id}`,
+    image: product.image,
+    imageAlt: product.name,
+    keywords: [product.name, product.sku, "mesin industri", "Indah Mesin", "MesinBagus"],
+  });
 }
 
 export default async function ProductDetailPage({ params }: Props) {
@@ -41,9 +40,7 @@ export default async function ProductDetailPage({ params }: Props) {
   const product = await findProductById(id);
   if (!product) notFound();
 
-  const productUrl = `${
-    process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000"
-  }/products/${product.id}`;
+  const productUrl = absoluteUrl(`/products/${product.id}`);
   const productSchema = {
     "@context": "https://schema.org",
     "@type": "Product",
@@ -52,10 +49,11 @@ export default async function ProductDetailPage({ params }: Props) {
     description:
       product.subtitle ||
       product.features?.slice(0, 2).join(" ") ||
-      `Mesin industri ${product.name} dari Indah Mesin.`,
-    image: product.image ? [product.image] : undefined,
+      `Industrial equipment ${product.name} from Indah Mesin.`,
+    image: product.image ? [absoluteUrl(product.image)] : undefined,
     url: productUrl,
     brand: { "@type": "Brand", name: "Indah Mesin" },
+    category: product.category,
     offers: product.priceAmount
       ? {
           "@type": "Offer",
@@ -71,12 +69,34 @@ export default async function ProductDetailPage({ params }: Props) {
       : undefined,
   };
 
+  const breadcrumbSchema = {
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+    itemListElement: [
+      {
+        "@type": "ListItem",
+        position: 1,
+        name: "Home",
+        item: absoluteUrl("/beranda-artikel"),
+      },
+      {
+        "@type": "ListItem",
+        position: 2,
+        name: "Categories",
+        item: absoluteUrl("/categories"),
+      },
+      {
+        "@type": "ListItem",
+        position: 3,
+        name: product.name,
+        item: productUrl,
+      },
+    ],
+  };
+
   return (
     <>
-      <script
-        type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(productSchema).replace(/</g, "\\u003c") }}
-      />
+      <JsonLd data={[productSchema, breadcrumbSchema]} />
       <ProductDetailView product={product} />
     </>
   );

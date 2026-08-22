@@ -35,7 +35,7 @@ export function skuToProductId(sku: string) {
   return sku.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
 }
 
-/** Fallback hanya 6 produk resmi — sama dengan seed DB */
+/** Fallback offline saja — storefront memakai MySQL published products. */
 export const products: Product[] = MARKETPLACE_PRODUCTS.map((p) => ({ ...p }));
 
 export function getProductBySku(sku: string) {

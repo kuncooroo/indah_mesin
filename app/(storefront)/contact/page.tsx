@@ -2,30 +2,26 @@ import type { Metadata } from "next";
 import { ShopTitledHeader } from "@/components/storefront/shop-titled-header";
 import { ContactPageView } from "@/components/storefront/contact-page-view";
 import { PwaBanner } from "@/components/storefront/pwa-banner";
+import { JsonLd } from "@/components/seo/json-ld";
 import { getSiteSettings } from "@/lib/storefront/site-settings";
 import { indahMesinContact } from "@/lib/storefront/contact";
+import { absoluteUrl, buildPageMetadata, getSiteUrl } from "@/lib/seo";
 
-export const metadata: Metadata = {
-  title: "Kontak Indah Mesin",
+export const metadata: Metadata = buildPageMetadata({
+  title: "Contact Indah Mesin",
   description:
-    "Hubungi Indah Mesin via WhatsApp +62 818 0892 5555 atau info@indahmesin.com. Head office di Tajinan, Kabupaten Malang.",
-  alternates: { canonical: "/contact" },
-  openGraph: {
-    title: "Kontak Indah Mesin",
-    description:
-      "Konsultasi mesin industri dan kunjungan showroom Senin–Sabtu pukul 07.00–16.00 WIB.",
-    url: "/contact",
-    type: "website",
-  },
-};
+    "Contact Indah Mesin via WhatsApp +62 818 0892 5555 or info@indahmesin.com. Head office in Tajinan, Kabupaten Malang.",
+  path: "/contact",
+  keywords: ["kontak Indah Mesin", "WhatsApp mesin industri", "showroom Malang"],
+});
 
 export default async function ContactPage() {
   const site = await getSiteSettings();
   const contactSchema = {
     "@context": "https://schema.org",
     "@type": "Organization",
-    name: "Indah Mesin",
-    url: process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000",
+    name: indahMesinContact.brandName,
+    url: getSiteUrl(),
     email: indahMesinContact.email,
     telephone: indahMesinContact.phoneDisplay,
     address: {
@@ -36,15 +32,24 @@ export default async function ContactPage() {
       postalCode: "65172",
       addressCountry: "ID",
     },
-    openingHours: "Mo-Sa 07:00-16:00",
+    openingHoursSpecification: {
+      "@type": "OpeningHoursSpecification",
+      dayOfWeek: ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"],
+      opens: "07:00",
+      closes: "16:00",
+    },
+    contactPoint: {
+      "@type": "ContactPoint",
+      telephone: indahMesinContact.phoneDisplay,
+      contactType: "sales",
+      availableLanguage: ["Indonesian", "English"],
+      url: absoluteUrl("/contact"),
+    },
   };
 
   return (
     <>
-      <script
-        type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(contactSchema).replace(/</g, "\\u003c") }}
-      />
+      <JsonLd data={contactSchema} />
       <PwaBanner />
       <ShopTitledHeader title="MesinBagus" />
       <ContactPageView site={site} />

@@ -1,4 +1,4 @@
-import { MARKETPLACE_CATEGORIES, shopCatalogCategoryWhere, shopCatalogProductWhere } from "@/lib/storefront/catalog-data";
+import { shopCatalogCategoryWhere, shopCatalogProductWhere } from "@/lib/storefront/catalog-data";
 import { prisma } from "@/lib/prisma";
 
 export type StorefrontCategory = {
@@ -7,53 +7,54 @@ export type StorefrontCategory = {
   icon: string;
 };
 
-const staticIconBySlug = new Map<string, string>(
-  MARKETPLACE_CATEGORIES.map((c) => [c.id, c.icon] as const)
-);
-const staticNameBySlug = new Map<string, string>(
-  MARKETPLACE_CATEGORIES.map((c) => [c.id, c.name] as const)
-);
-
-const slugOrder: string[] = MARKETPLACE_CATEGORIES.map((c) => c.id);
-
-function sortByCatalogOrder(rows: StorefrontCategory[]): StorefrontCategory[] {
-  return [...rows].sort((a, b) => slugOrder.indexOf(a.id) - slugOrder.indexOf(b.id));
-}
-
 function mapRow(row: { slug: string; name: string; icon: string | null }): StorefrontCategory {
   return {
     id: row.slug,
-    name: staticNameBySlug.get(row.slug) ?? row.name,
-    icon: row.icon ?? staticIconBySlug.get(row.slug) ?? "category",
+    name: row.name,
+    icon: row.icon ?? "category",
   };
 }
 
+/** Kategori storefront dari MySQL (semua kategori yang dikelola admin). */
 export async function listCatalogCategories(): Promise<StorefrontCategory[]> {
   try {
-    const rows = await prisma.category.findMany({
+    const withPublishedProducts = await prisma.category.findMany({
       where: {
         ...shopCatalogCategoryWhere,
         products: { some: shopCatalogProductWhere },
       },
+      orderBy: { name: "asc" },
     });
-    if (rows.length > 0) {
-      return sortByCatalogOrder(rows.map(mapRow));
+    if (withPublishedProducts.length > 0) {
+      return withPublishedProducts.map(mapRow);
     }
+
     const all = await prisma.category.findMany({
       where: shopCatalogCategoryWhere,
+      orderBy: { name: "asc" },
     });
-    if (all.length > 0) {
-      return sortByCatalogOrder(all.map(mapRow));
-    }
+    return all.map(mapRow);
   } catch {
-    /* DB belum siap */
+    return [];
   }
-  return [...MARKETPLACE_CATEGORIES];
 }
 
 export async function listBerandaCategories(limit = 4): Promise<StorefrontCategory[]> {
   const cats = await listCatalogCategories();
   return cats.slice(0, limit);
+}
+
+export async function findCatalogCategoryBySlug(
+  slug: string
+): Promise<StorefrontCategory | undefined> {
+  try {
+    const row = await prisma.category.findFirst({
+      where: { ...shopCatalogCategoryWhere, slug },
+    });
+    return row ? mapRow(row) : undefined;
+  } catch {
+    return undefined;
+  }
 }
 
 export async function countShopCategories() {
@@ -69,9 +70,6 @@ export async function countShopCategories() {
     ]);
     return { withProducts, total };
   } catch {
-    return {
-      withProducts: MARKETPLACE_CATEGORIES.length,
-      total: MARKETPLACE_CATEGORIES.length,
-    };
+    return { withProducts: 0, total: 0 };
   }
 }
