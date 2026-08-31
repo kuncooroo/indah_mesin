@@ -13,6 +13,11 @@ import { cn } from "@/lib/utils";
 
 type Filter = "all" | OrderStatus;
 
+type OrderRow = ProfileOrder & {
+  progressPercent?: number;
+  estimatedDays?: number | null;
+};
+
 const filters: { id: Filter; label: string }[] = [
   { id: "all", label: "All" },
   { id: "processed", label: "Processed" },
@@ -44,7 +49,7 @@ function StatusBadge({ status }: { status: OrderStatus }) {
 
 export default function ProfileOrdersPage() {
   const [filter, setFilter] = useState<Filter>("all");
-  const [orders, setOrders] = useState<ProfileOrder[]>([]);
+  const [orders, setOrders] = useState<OrderRow[]>([]);
 
   useEffect(() => {
     void fetch("/api/profile/orders")
@@ -111,11 +116,11 @@ export default function ProfileOrdersPage() {
           {visible.length > 0 ? (
             <div className="space-y-4 px-margin-mobile pt-6" id="po-list">
               {visible.map((order) => (
-                <button
+                <Link
                   key={order.id}
-                  type="button"
+                  href={`/profile/orders/${order.id}`}
                   className={cn(
-                    "group relative w-full cursor-pointer overflow-hidden rounded-xl bg-surface-container-lowest p-4 text-left shadow-sm transition-all hover:shadow-md active:scale-[0.98]",
+                    "group relative block w-full cursor-pointer overflow-hidden rounded-xl bg-surface-container-lowest p-4 text-left shadow-sm transition-all hover:shadow-md active:scale-[0.98]",
                     order.status === "cancelled" && "opacity-90"
                   )}
                 >
@@ -128,22 +133,36 @@ export default function ProfileOrdersPage() {
                     </div>
                     <StatusBadge status={order.status} />
                   </div>
-                  <div className="flex items-end justify-between">
+                  <div className="flex items-end justify-between gap-3">
                     <div className={order.status === "cancelled" ? "opacity-60" : undefined}>
                       <p className="font-body-sm text-on-surface-variant">{order.description}</p>
                       <p className="font-headline-md text-headline-md text-on-surface">
                         {order.amount}
                       </p>
+                      {typeof order.progressPercent === "number" ? (
+                        <div className="mt-2 max-w-[200px]">
+                          <div className="mb-1 flex justify-between font-body-sm text-on-surface-variant">
+                            <span>Progress</span>
+                            <span>{order.progressPercent}%</span>
+                          </div>
+                          <div className="h-1.5 overflow-hidden rounded-full bg-surface-container">
+                            <div
+                              className="h-full rounded-full bg-primary"
+                              style={{ width: `${Math.min(100, order.progressPercent)}%` }}
+                            />
+                          </div>
+                        </div>
+                      ) : null}
                     </div>
                     <MaterialSymbol
                       name="chevron_right"
-                      className="text-outline transition-colors group-hover:text-primary"
+                      className="shrink-0 text-outline transition-colors group-hover:text-primary"
                     />
                   </div>
                   {order.status === "processed" ? (
                     <div className="absolute bottom-0 left-0 h-1 w-0 bg-primary transition-all duration-300 group-hover:w-full" />
                   ) : null}
-                </button>
+                </Link>
               ))}
             </div>
           ) : (

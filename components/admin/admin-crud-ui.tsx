@@ -155,6 +155,7 @@ export function AdminFormField({
   maxLength,
   min,
   max,
+  placeholder,
 }: {
   label: string;
   name: string;
@@ -168,6 +169,7 @@ export function AdminFormField({
   maxLength?: number;
   min?: number;
   max?: number;
+  placeholder?: string;
 }) {
   const inputClass =
     "mt-1 w-full rounded-lg border border-neutral-200 px-3 py-2 text-sm outline-none focus:border-neutral-400";
@@ -182,6 +184,7 @@ export function AdminFormField({
           required={required}
           minLength={minLength}
           maxLength={maxLength}
+          placeholder={placeholder}
           rows={3}
           className={inputClass}
         />
@@ -203,6 +206,7 @@ export function AdminFormField({
           maxLength={maxLength}
           min={min}
           max={max}
+          placeholder={placeholder}
           className={inputClass}
         />
       )}
@@ -307,6 +311,7 @@ export function AdminSubmitButton({ label }: { label: string }) {
 
 export function AdminDeleteButton({
   action,
+  label,
 }: {
   action: () => Promise<ActionResult | void>;
   label?: string;
@@ -332,11 +337,15 @@ export function AdminDeleteButton({
     <>
       <button
         type="button"
-        title="Hapus"
-        className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-red-200 text-red-700 transition-colors hover:bg-red-50"
+        title={label ?? "Hapus"}
+        className={
+          label
+            ? "rounded-md border border-red-200 px-3 py-1.5 text-xs font-medium text-red-700 hover:bg-red-50"
+            : "inline-flex h-8 w-8 items-center justify-center rounded-md border border-red-200 text-red-700 transition-colors hover:bg-red-50"
+        }
         onClick={() => setConfirmOpen(true)}
       >
-        <Trash2 className="h-4 w-4" strokeWidth={1.75} />
+        {label ? label : <Trash2 className="h-4 w-4" strokeWidth={1.75} />}
       </button>
       {confirmOpen ? (
         <div className="fixed inset-0 z-[110] flex items-center justify-center p-4">

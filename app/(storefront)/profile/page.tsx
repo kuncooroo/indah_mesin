@@ -140,6 +140,24 @@ export default async function ProfilePage() {
 
           <section className="mt-section-gap flex flex-col gap-1 px-margin-mobile">
             <Link
+              href="/profile/notifications"
+              className="flex items-center rounded-xl bg-surface-container-lowest p-4 text-left transition-colors hover:bg-surface-container-low"
+            >
+              <div className="flex h-10 w-10 items-center justify-center rounded-full text-on-surface-variant">
+                <MaterialSymbol name="notifications" />
+              </div>
+              <div className="ml-4 flex-1">
+                <div className="font-button-text text-button-text text-on-surface">
+                  Notifications
+                </div>
+                <div className="line-clamp-1 font-body-sm text-body-sm text-on-surface-variant">
+                  Progress updates for your purchase orders
+                </div>
+              </div>
+              <MaterialSymbol name="chevron_right" className="text-outline" />
+            </Link>
+
+            <Link
               href="/profile/settings"
               className="flex items-center rounded-xl bg-surface-container-lowest p-4 text-left transition-colors hover:bg-surface-container-low"
             >

@@ -30,6 +30,8 @@ export async function GET() {
             : "processed",
       description: row.items.map((item) => item.product.name).join(", ") || "Purchase Order",
       amount: idr.format(Number(row.totalEstimatedPrice)),
+      progressPercent: Number(row.progressPercent),
+      estimatedDays: row.estimatedDays,
     })),
   });
 }

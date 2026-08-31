@@ -479,6 +479,98 @@ async function main() {
     }
   }
 
+  // Template WBS contoh: produksi boiler (5 parent × sub)
+  const existingWbs = await prisma.wbsTemplate.findFirst({
+    where: { name: "Produksi Boiler Standar" },
+  });
+  if (!existingWbs) {
+    const template = await prisma.wbsTemplate.create({
+      data: {
+        name: "Produksi Boiler Standar",
+        description:
+          "Template WBS 30 hari — 5 fase parent dengan sub-tugas jam kerja (maks 8 jam).",
+        estimatedDays: 30,
+        active: true,
+      },
+    });
+
+    const phases: { title: string; children: { title: string; hours: number }[] }[] = [
+      {
+        title: "Mengerjakan Boiler",
+        children: [
+          { title: "Cover boiler", hours: 8 },
+          { title: "Body boiler", hours: 8 },
+          { title: "Welding rangka", hours: 8 },
+          { title: "Insulation", hours: 6 },
+          { title: "Finishing permukaan", hours: 4 },
+        ],
+      },
+      {
+        title: "Piping & Valve",
+        children: [
+          { title: "Instalasi pipa", hours: 8 },
+          { title: "Mounting valve", hours: 6 },
+          { title: "Pressure test pipa", hours: 4 },
+          { title: "Flange & fitting", hours: 8 },
+          { title: "Labeling jalur", hours: 2 },
+        ],
+      },
+      {
+        title: "Electrical System",
+        children: [
+          { title: "Panel kontrol", hours: 8 },
+          { title: "Wiring sensor", hours: 8 },
+          { title: "Motor & pompa", hours: 6 },
+          { title: "Grounding", hours: 4 },
+          { title: "Uji kelistrikan", hours: 4 },
+        ],
+      },
+      {
+        title: "Testing & QC",
+        children: [
+          { title: "Hydrostatic test", hours: 8 },
+          { title: "Safety valve check", hours: 4 },
+          { title: "Calibration", hours: 6 },
+          { title: "Dokumentasi QC", hours: 4 },
+          { title: "Final inspection", hours: 8 },
+        ],
+      },
+      {
+        title: "Pengemasan & Pengiriman",
+        children: [
+          { title: "Packaging", hours: 8 },
+          { title: "Loading", hours: 4 },
+          { title: "Dokumen pengiriman", hours: 2 },
+          { title: "Dispatch", hours: 4 },
+          { title: "Handover", hours: 2 },
+        ],
+      },
+    ];
+
+    for (let i = 0; i < phases.length; i++) {
+      const phase = phases[i];
+      const parent = await prisma.wbsTemplateItem.create({
+        data: {
+          templateId: template.id,
+          title: phase.title,
+          sortOrder: i,
+        },
+      });
+      for (let j = 0; j < phase.children.length; j++) {
+        const child = phase.children[j];
+        await prisma.wbsTemplateItem.create({
+          data: {
+            templateId: template.id,
+            parentId: parent.id,
+            title: child.title,
+            sortOrder: j,
+            estimatedHours: child.hours,
+          },
+        });
+      }
+    }
+  }
+
   console.log("Seed selesai.");
   console.log(`User (tabel User): user@indahmesin.com — password: ${DEFAULT_PASSWORD}`);
   console.log(`Admin (tabel Admin): admin / admin@indahmesin.com — password: ${DEFAULT_PASSWORD}`);

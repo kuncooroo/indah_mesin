@@ -29,6 +29,12 @@ enum OrderStatus {
   CANCELLED
 }
 
+enum ProgressTaskStatus {
+  NOT_STARTED
+  IN_PROGRESS
+  COMPLETED
+}
+
 enum ArchiveDocumentType {
   PO_DRAFT
   OFFICIAL_QUOTATION
@@ -131,6 +137,7 @@ model User {
   archiveDocuments   ArchiveDocument[]
   activityLogs       ActivityLog[]
   passwordResets     PasswordResetToken[]
+  notifications      UserNotification[]
 
   createdAt          DateTime           @default(now())
   updatedAt          DateTime           @updatedAt
@@ -363,8 +370,17 @@ model Order {
   shippingAddress     CompanyAddress? @relation(fields: [shippingAddressId], references: [id], onDelete: SetNull)
   notes               String?     @db.Text
 
-  items     OrderItem[]
-  documents ArchiveDocument[]
+  /// Estimasi pengerjaan keseluruhan (hari kerja)
+  estimatedDays       Int?
+  estimatedEndDate    DateTime?
+  /// Cache 0–100 dari leaf task yang COMPLETED
+  progressPercent     Decimal     @default(0) @db.Decimal(5, 2)
+  wbsTemplateId       String?
+  wbsTemplate         WbsTemplate? @relation(fields: [wbsTemplateId], references: [id], onDelete: SetNull)
+
+  items         OrderItem[]
+  documents     ArchiveDocument[]
+  progressTasks OrderProgressTask[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -372,6 +388,7 @@ model Order {
   @@index([userId])
   @@index([companyId])
   @@index([status])
+  @@index([wbsTemplateId])
 }
 
 model OrderItem {
@@ -385,6 +402,103 @@ model OrderItem {
 
   @@index([orderId])
   @@index([productId])
+}
+
+// ==========================================
+// 5c. WBS TEMPLATE & ORDER PROGRESS
+// ==========================================
+
+model WbsTemplate {
+  id            String  @id @default(uuid())
+  name          String
+  description   String? @db.Text
+  estimatedDays Int     @default(30)
+  active        Boolean @default(true)
+
+  items  WbsTemplateItem[]
+  orders Order[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model WbsTemplateItem {
+  id         String       @id @default(uuid())
+  templateId String
+  template   WbsTemplate  @relation(fields: [templateId], references: [id], onDelete: Cascade)
+
+  parentId String?
+  parent   WbsTemplateItem?  @relation("WbsTemplateTree", fields: [parentId], references: [id], onDelete: Cascade)
+  children WbsTemplateItem[] @relation("WbsTemplateTree")
+
+  title          String
+  sortOrder      Int     @default(0)
+  /// Leaf/child saja — jam kerja estimasi (maks 8)
+  estimatedHours Int?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([templateId])
+  @@index([parentId])
+}
+
+model OrderProgressTask {
+  id      String @id @default(uuid())
+  orderId String
+  order   Order  @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  parentId String?
+  parent   OrderProgressTask?  @relation("OrderProgressTree", fields: [parentId], references: [id], onDelete: Cascade)
+  children OrderProgressTask[] @relation("OrderProgressTree")
+
+  title         String
+  sortOrder     Int                @default(0)
+  weightPercent Decimal            @db.Decimal(5, 2)
+  status        ProgressTaskStatus @default(NOT_STARTED)
+
+  estimatedDays  Int?
+  estimatedHours Int?
+  actualHours    Int?
+
+  startedAt   DateTime?
+  completedAt DateTime?
+  note        String? @db.Text
+
+  photos OrderProgressPhoto[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([orderId])
+  @@index([parentId])
+  @@index([status])
+}
+
+model OrderProgressPhoto {
+  id        String            @id @default(uuid())
+  taskId    String
+  task      OrderProgressTask @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  url       String            @db.Text
+  caption   String?
+  createdAt DateTime          @default(now())
+
+  @@index([taskId])
+}
+
+model UserNotification {
+  id        String    @id @default(uuid())
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title     String
+  body      String    @db.Text
+  linkUrl   String?   @db.Text
+  orderId   String?
+  readAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([userId, readAt])
+  @@index([orderId])
 }
 
 model ArchiveDocument {

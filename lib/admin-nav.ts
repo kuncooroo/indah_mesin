@@ -13,6 +13,7 @@ import {
   Globe,
   Settings,
   UserRoundX,
+  ListTree,
 } from "lucide-react";
 
 export type AdminNavItem = {
@@ -46,6 +47,7 @@ export const adminNavGroups: AdminNavGroup[] = [
       { href: "/admin/products", label: "Produk", icon: Package, matchPrefix: true },
       { href: "/admin/categories", label: "Kategori", icon: FolderTree, matchPrefix: true },
       { href: "/admin/orders", label: "Order / PO", icon: ClipboardList, matchPrefix: true },
+      { href: "/admin/wbs-templates", label: "Template WBS", icon: ListTree, matchPrefix: true },
       { href: "/admin/documents", label: "Dokumen", icon: Files, matchPrefix: true },
     ],
   },

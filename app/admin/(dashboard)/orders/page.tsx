@@ -16,6 +16,7 @@ import {
 import { AdminDeleteButton } from "@/components/admin/admin-crud-ui";
 import { OrderEditDialog } from "@/components/admin/admin-company-crud";
 import { RfqEditDialog } from "@/components/admin/admin-entity-crud";
+import { AdminPreviewLink } from "@/components/admin/admin-icon-actions";
 
 type PageProps = {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
@@ -105,6 +106,7 @@ async function OrdersSection({ params }: { params: ReturnType<typeof parseAdminL
               <th className="px-6 py-3 font-medium text-neutral-500">Perusahaan</th>
               <th className="px-6 py-3 font-medium text-neutral-500">Item</th>
               <th className="px-6 py-3 font-medium text-neutral-500">Total</th>
+              <th className="px-6 py-3 font-medium text-neutral-500">Progress</th>
               <th className="px-6 py-3 font-medium text-neutral-500">Status</th>
               <th className="px-6 py-3 text-right font-medium text-neutral-500">Aksi</th>
             </tr>
@@ -118,8 +120,10 @@ async function OrdersSection({ params }: { params: ReturnType<typeof parseAdminL
                 <td className="px-6 py-3">{o.company?.companyName ?? "—"}</td>
                 <td className="px-6 py-3">{o._count.items}</td>
                 <td className="px-6 py-3">{formatIdr(o.totalEstimatedPrice)}</td>
+                <td className="px-6 py-3 tabular-nums">{Number(o.progressPercent)}%</td>
                 <td className="px-6 py-3">{o.status.replace(/_/g, " ")}</td>
                 <AdminActionCell>
+                  <AdminPreviewLink href={`/admin/orders/${o.id}/progress`} />
                   <OrderEditDialog
                     row={{ id: o.id, status: o.status, notes: o.notes }}
                     updateAction={updateOrder}
