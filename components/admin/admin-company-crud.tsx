@@ -178,6 +178,39 @@ const documentTypeOptions = [
   { value: "BROCHURE", label: "Brosur" },
 ];
 
+export function OrderDocumentCreateDialog({
+  createAction,
+  orderId,
+  userId,
+}: {
+  createAction: (formData: FormData) => Promise<ActionResult | void>;
+  orderId: string;
+  userId?: string;
+}) {
+  return (
+    <AdminCrudDialog
+      title="Tambah Dokumen PO"
+      triggerLabel="Tambah dokumen"
+      triggerMode="icon-document"
+    >
+      <AdminActionForm action={createAction} className={adminFormGridClass}>
+        <input type="hidden" name="orderId" value={orderId} />
+        {userId ? <input type="hidden" name="userId" value={userId} /> : null}
+        <AdminFormField label="Nama file" name="documentName" required />
+        <AdminFormField
+          label="Tipe"
+          name="documentType"
+          as="select"
+          defaultValue="PO_DRAFT"
+          options={documentTypeOptions}
+        />
+        <AdminFormField label="URL file (PDF)" name="fileUrl" required />
+        <AdminSubmitButton label="Simpan" />
+      </AdminActionForm>
+    </AdminCrudDialog>
+  );
+}
+
 export function ArchiveDocumentCreateDialog({
   createAction,
 }: {

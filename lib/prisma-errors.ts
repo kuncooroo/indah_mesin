@@ -6,7 +6,6 @@ const UNIQUE_FIELD_MESSAGES: Record<string, { field: string; message: string }> 
   slug: { field: "slug", message: "Slug sudah digunakan." },
   email: { field: "email", message: "Email sudah digunakan." },
   username: { field: "username", message: "Username sudah digunakan." },
-  rfqNumber: { field: "rfqNumber", message: "Nomor RFQ sudah digunakan." },
   orderNumber: { field: "orderNumber", message: "Nomor order sudah digunakan." },
   customBuyerId: { field: "customBuyerId", message: "Buyer ID sudah digunakan." },
   token: { field: "token", message: "Token sudah digunakan." },

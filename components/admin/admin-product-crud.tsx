@@ -9,6 +9,7 @@ import {
   AdminActionForm,
   adminFormGridClass,
 } from "./admin-crud-ui";
+import { AdminProductGallery, type ProductMediaItem } from "./admin-product-gallery";
 import type { ActionResult } from "@/lib/action-result";
 
 export function ProductCreateDialog({
@@ -61,6 +62,7 @@ export function ProductEditDialog({
   updateAction,
   categories,
   primaryImageUrl,
+  media,
 }: {
   product: {
     id: string;
@@ -78,6 +80,7 @@ export function ProductEditDialog({
   updateAction: (formData: FormData) => Promise<ActionResult | void>;
   categories: { id: string; label: string }[];
   primaryImageUrl?: string;
+  media?: ProductMediaItem[];
 }) {
   return (
     <AdminCrudDialog title="Edit Produk" triggerLabel="Edit" variant="ghost" triggerMode="icon-edit">
@@ -92,6 +95,7 @@ export function ProductEditDialog({
           options={categories.map((c) => ({ value: c.id, label: c.label }))}
         />
         <AdminFileField label="Gambar utama" name="image" defaultUrl={primaryImageUrl} />
+        <AdminProductGallery productId={product.id} initialMedia={media ?? []} />
         <AdminFormField label="Harga (angka)" name="price" type="number" defaultValue={product.price} />
         <AdminFormField label="Catatan harga" name="priceNote" defaultValue={product.priceNote ?? ""} />
         <AdminFormField

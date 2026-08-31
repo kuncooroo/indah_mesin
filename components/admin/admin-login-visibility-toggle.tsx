@@ -1,7 +1,7 @@
 "use client";
 
 import { useTransition } from "react";
-import { toast } from "sonner";
+import { adminToast } from "@/lib/admin/admin-toast";
 import { setAdminLoginVisible } from "@/lib/admin-actions";
 
 export function AdminLoginVisibilityToggle({ visible }: { visible: boolean }) {
@@ -12,9 +12,14 @@ export function AdminLoginVisibilityToggle({ visible }: { visible: boolean }) {
       <div>
         <p className="text-sm font-semibold text-neutral-900">Login admin (/admin/login)</p>
         <p className="mt-1 text-xs text-neutral-500">
-          Sembunyikan halaman login publik. Superadmin tetap bisa buka dengan{" "}
-          <code className="rounded bg-neutral-100 px-1">?access=ADMIN_LOGIN_ACCESS_KEY</code> dari
-          environment.
+          Sembunyikan halaman login publik. Superadmin tetap bisa buka dengan menambahkan{" "}
+          <code className="rounded bg-neutral-100 px-1">?access=nilai-dari-env</code> pada URL
+          login, misalnya{" "}
+          <code className="rounded bg-neutral-100 px-1">
+            /admin/login?access=rahasia123
+          </code>{" "}
+          jika <code className="rounded bg-neutral-100 px-1">ADMIN_LOGIN_ACCESS_KEY=rahasia123</code>{" "}
+          di file <code className="rounded bg-neutral-100 px-1">.env</code>.
         </p>
         <p className="mt-1 text-xs font-medium text-neutral-700">
           Status sekarang:{" "}
@@ -30,11 +35,11 @@ export function AdminLoginVisibilityToggle({ visible }: { visible: boolean }) {
           startTransition(async () => {
             try {
               await setAdminLoginVisible(!visible);
-              toast.success(
+              adminToast.success(
                 !visible ? "Login admin ditampilkan kembali" : "Login admin disembunyikan"
               );
             } catch (err) {
-              toast.error(err instanceof Error ? err.message : "Gagal mengubah status");
+              adminToast.error(err instanceof Error ? err.message : "Gagal mengubah status");
             }
           });
         }}

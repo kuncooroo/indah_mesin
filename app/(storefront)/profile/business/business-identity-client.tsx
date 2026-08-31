@@ -52,6 +52,15 @@ type Business = {
   personnel: Personnel[];
 };
 
+type PendingInvite = {
+  id: string;
+  name: string;
+  email: string;
+  position: string | null;
+  expiresAt: string;
+  acceptedAt: string | null;
+};
+
 type BusinessResponse = {
   canManage: boolean;
   businessComplete: boolean;
@@ -74,6 +83,8 @@ export default function BusinessIdentityClient() {
   const [showAddressForm, setShowAddressForm] = useState(false);
   const [showInviteForm, setShowInviteForm] = useState(false);
   const [inviteResult, setInviteResult] = useState("");
+  const [pendingInvites, setPendingInvites] = useState<PendingInvite[]>([]);
+  const [companyName, setCompanyName] = useState("");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
@@ -99,23 +110,37 @@ export default function BusinessIdentityClient() {
     const result = (await response.json()) as BusinessResponse & { error?: string };
     if (!response.ok) throw new Error(result.error ?? "Failed to load business identity.");
     setData(result);
+    setCompanyName(result.business.companyName ?? "");
     setNpwp(formatNpwpDisplay(result.business.npwpNumber ?? ""));
     setNib(normalizeNib(result.business.nibNumber ?? ""));
     return result;
   }, []);
 
-  function finishSave(result: BusinessResponse) {
-    if (needPo && productId && result.businessComplete) {
-      showSuccess("Business identity saved successfully.");
-      router.push(`/po-preview?product=${encodeURIComponent(productId)}`);
-      return;
+  const loadInvites = useCallback(async () => {
+    try {
+      const response = await fetch("/api/profile/business/invite");
+      if (!response.ok) return;
+      const result = (await response.json()) as { invites?: PendingInvite[] };
+      setPendingInvites(
+        (result.invites ?? []).filter((invite) => !invite.acceptedAt)
+      );
+    } catch {
+      /* ignore */
     }
-    router.push("/profile?saved=business");
+  }, []);
+
+  function afterSuccessfulSave(result: BusinessResponse) {
+    setSaved(true);
+    window.setTimeout(() => setSaved(false), 2500);
+    showSuccess("Business identity saved.");
+    if (needPo && productId && result.businessComplete) {
+      router.push(`/po-preview?product=${encodeURIComponent(productId)}`);
+    }
   }
 
   useEffect(() => {
     let active = true;
-    void loadBusiness()
+    void Promise.all([loadBusiness(), loadInvites()])
       .catch((reason: unknown) => {
         if (active) {
           showError(reason instanceof Error ? reason.message : "Failed to load business identity.");
@@ -127,19 +152,35 @@ export default function BusinessIdentityClient() {
     return () => {
       active = false;
     };
-  }, [loadBusiness, showError]);
+  }, [loadBusiness, loadInvites, showError]);
 
-  async function saveCompany(event: FormEvent<HTMLFormElement>) {
+  async function saveAll(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!data?.canManage) return;
-    const form = new FormData(event.currentTarget);
-    const companyName = String(form.get("companyName") ?? "").trim();
+
     const nextErrors: Record<string, string> = {};
-    if (companyName.length < 2) nextErrors.companyName = "Company name must be at least 2 characters.";
+    if (companyName.trim().length < 2) {
+      nextErrors.companyName = "Company name must be at least 2 characters.";
+    }
     const npwpMsg = npwpErrorMessage(npwp);
     const nibMsg = nibErrorMessage(nib);
     if (npwpMsg) nextErrors.npwpNumber = npwpMsg;
     if (nibMsg) nextErrors.nibNumber = nibMsg;
+
+    const addressFormOpen = showAddressForm || data.business.addresses.length === 0;
+    const wantsAddress =
+      addressFormOpen &&
+      (addressLabel.trim().length > 0 ||
+        location.detail.trim().length > 0 ||
+        data.business.addresses.length === 0);
+
+    if (wantsAddress) {
+      Object.assign(nextErrors, validateLocation(location));
+      if (addressLabel.trim().length < 2) {
+        nextErrors.label = "Location label must be at least 2 characters.";
+      }
+    }
+
     setFieldErrors(nextErrors);
     if (Object.keys(nextErrors).length > 0) {
       showError("Please fix the highlighted fields before saving.");
@@ -148,64 +189,47 @@ export default function BusinessIdentityClient() {
 
     setSaving(true);
     try {
-      const response = await fetch("/api/profile/business", {
+      const companyResponse = await fetch("/api/profile/business", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           kind: "company",
-          companyName,
+          companyName: companyName.trim(),
           npwpNumber: npwp,
           nibNumber: nib,
         }),
       });
-      const result = (await response.json()) as { error?: string };
-      if (!response.ok) throw new Error(result.error ?? "Failed to save company details.");
-      const refreshed = await loadBusiness();
-      setSaved(true);
-      window.setTimeout(() => setSaved(false), 2000);
-      if (refreshed) finishSave(refreshed);
-    } catch (reason) {
-      showError(reason instanceof Error ? reason.message : "Failed to save company details.");
-    } finally {
-      setSaving(false);
-    }
-  }
+      const companyResult = (await companyResponse.json()) as { error?: string };
+      if (!companyResponse.ok) {
+        throw new Error(companyResult.error ?? "Failed to save company details.");
+      }
 
-  async function saveAddress(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    if (!data?.canManage) return;
-    const locationErrors = validateLocation(location);
-    const nextErrors: Record<string, string> = { ...locationErrors };
-    if (addressLabel.trim().length < 2) nextErrors.label = "Location label must be at least 2 characters.";
-    setFieldErrors(nextErrors);
-    if (Object.keys(nextErrors).length > 0) {
-      showError("Please fix the highlighted address fields.");
-      return;
-    }
+      if (wantsAddress) {
+        const payload = locationToAddressPayload(location, addressLabel.trim());
+        const addressResponse = await fetch("/api/profile/business", {
+          method: editingAddressId ? "PATCH" : "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            ...(editingAddressId ? { kind: "address", id: editingAddressId } : {}),
+            ...payload,
+            isPrimary: addressPrimary,
+          }),
+        });
+        const addressResult = (await addressResponse.json()) as { error?: string };
+        if (!addressResponse.ok) {
+          throw new Error(addressResult.error ?? "Failed to save address.");
+        }
+        setLocation(emptyLocation);
+        setAddressLabel("");
+        setEditingAddressId("");
+        setShowAddressForm(false);
+      }
 
-    const payload = locationToAddressPayload(location, addressLabel.trim());
-    setSaving(true);
-    try {
-      const response = await fetch("/api/profile/business", {
-        method: editingAddressId ? "PATCH" : "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          ...(editingAddressId ? { kind: "address", id: editingAddressId } : {}),
-          ...payload,
-          isPrimary: addressPrimary,
-        }),
-      });
-      const result = (await response.json()) as { error?: string };
-      if (!response.ok) throw new Error(result.error ?? "Failed to save address.");
       const refreshed = await loadBusiness();
-      setLocation(emptyLocation);
-      setAddressLabel("");
-      setEditingAddressId("");
-      setShowAddressForm(false);
       setFieldErrors({});
-      if (refreshed) finishSave(refreshed);
+      if (refreshed) afterSuccessfulSave(refreshed);
     } catch (reason) {
-      showError(reason instanceof Error ? reason.message : "Failed to save address.");
+      showError(reason instanceof Error ? reason.message : "Failed to save business identity.");
     } finally {
       setSaving(false);
     }
@@ -235,6 +259,33 @@ export default function BusinessIdentityClient() {
     setSaving(true);
     setInviteResult("");
     try {
+      // Ensure company exists before inviting
+      if (!data.business.id) {
+        if (companyName.trim().length < 2) {
+          throw new Error("Isi dan simpan Business Identity terlebih dahulu sebelum invite.");
+        }
+        const npwpMsg = npwpErrorMessage(npwp);
+        const nibMsg = nibErrorMessage(nib);
+        if (npwpMsg || nibMsg) {
+          throw new Error("Lengkapi NPWP & NIB, lalu Save sebelum mengundang anggota.");
+        }
+        const companyResponse = await fetch("/api/profile/business", {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            kind: "company",
+            companyName: companyName.trim(),
+            npwpNumber: npwp,
+            nibNumber: nib,
+          }),
+        });
+        const companyResult = (await companyResponse.json()) as { error?: string };
+        if (!companyResponse.ok) {
+          throw new Error(companyResult.error ?? "Gagal menyimpan perusahaan sebelum invite.");
+        }
+        await loadBusiness();
+      }
+
       const response = await fetch("/api/profile/business/invite", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -252,7 +303,8 @@ export default function BusinessIdentityClient() {
           : result.message ?? "Invitation created."
       );
       showSuccess("Team invite created successfully.");
-      await loadBusiness();
+      event.currentTarget.reset();
+      await Promise.all([loadBusiness(), loadInvites()]);
     } catch (reason) {
       showError(reason instanceof Error ? reason.message : "Failed to create invitation.");
     } finally {
@@ -285,10 +337,13 @@ export default function BusinessIdentityClient() {
     }
   }
 
+  const mapQuery = (address: Address) =>
+    [address.addressDetail, address.city, address.postalCode].filter(Boolean).join(", ");
+
   return (
     <>
       <ProfileSettingsHeader backHref="/profile" title="Business Identity" />
-      <main className="min-h-screen bg-background pb-24 pt-16">
+      <main className="min-h-screen bg-background pb-28 pt-16">
         <div className="space-y-section-gap px-4 py-8">
           {loading ? (
             <div className="space-y-4">
@@ -316,233 +371,253 @@ export default function BusinessIdentityClient() {
                 </Link>
               ) : null}
 
-              <section className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <h2 className="font-headline-md text-headline-md text-on-surface">
-                    Business Identity
-                  </h2>
-                  <VerificationBadge
-                    verified={data.business.isVerified}
-                    complete={data.businessComplete}
-                  />
-                </div>
-                <form
-                  onSubmit={saveCompany}
-                  className="space-y-4 rounded-xl bg-surface-container-low p-4"
-                  noValidate
-                >
-                  <BusinessField
-                    name="companyName"
-                    label="Company Name"
-                    defaultValue={data.business.companyName}
-                    readOnly={!data.canManage}
-                    required
-                    error={fieldErrors.companyName}
-                  />
-                  <label className="block space-y-1">
-                    <span className="font-label-technical text-label-technical uppercase text-outline">
-                      NPWP (15 or 16 digits)
-                    </span>
-                    <input
-                      value={npwp}
-                      onChange={(event) => setNpwp(formatNpwpDisplay(event.target.value))}
-                      readOnly={!data.canManage}
-                      inputMode="numeric"
-                      placeholder="01.234.567.8-012.000"
-                      className={cn(
-                        "h-12 w-full rounded-lg border border-transparent bg-surface-container px-3 font-body-md text-on-surface outline-none focus:ring-2 focus:ring-primary/20 read-only:opacity-70",
-                        inputErrorClass(Boolean(fieldErrors.npwpNumber))
-                      )}
+              <form onSubmit={saveAll} className="space-y-8" noValidate>
+                <section className="space-y-4">
+                  <div className="flex items-center justify-between">
+                    <h2 className="font-headline-md text-headline-md text-on-surface">
+                      Business Identity
+                    </h2>
+                    <VerificationBadge
+                      verified={data.business.isVerified}
+                      complete={data.businessComplete}
                     />
-                    <FieldHint message="Enter 15 digits (legacy) or 16 digits (new NPWP / NIK)." />
-                    <FieldError message={fieldErrors.npwpNumber} />
-                  </label>
-                  <label className="block space-y-1">
-                    <span className="font-label-technical text-label-technical uppercase text-outline">
-                      NIB (13 digits)
-                    </span>
-                    <input
-                      value={nib}
-                      onChange={(event) => setNib(normalizeNib(event.target.value))}
-                      readOnly={!data.canManage}
-                      inputMode="numeric"
-                      placeholder="1234567890123"
-                      maxLength={13}
-                      className={cn(
-                        "h-12 w-full rounded-lg border border-transparent bg-surface-container px-3 font-body-md text-on-surface outline-none focus:ring-2 focus:ring-primary/20 read-only:opacity-70",
-                        inputErrorClass(Boolean(fieldErrors.nibNumber))
-                      )}
-                    />
-                    <FieldHint message="Business Identification Number (NIB) must be exactly 13 digits." />
-                    <FieldError message={fieldErrors.nibNumber} />
-                  </label>
-                  {data.canManage ? (
-                    <button
-                      type="submit"
-                      disabled={saving}
-                      className="flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-primary font-button-text text-on-primary disabled:opacity-60"
-                    >
-                      <MaterialSymbol name={saved ? "check_circle" : "save"} />
-                      {saved ? "Business Saved" : saving ? "Saving…" : "Save Business Identity"}
-                    </button>
-                  ) : (
-                    <p className="text-body-sm text-on-surface-variant">
-                      Company data is managed by the primary buyer or an administrator.
-                    </p>
-                  )}
-                </form>
-              </section>
-
-              <section className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <MaterialSymbol name="factory" className="text-primary" />
-                    <h2 className="font-headline-md text-headline-md text-on-surface">Facilities</h2>
                   </div>
-                  {data.canManage ? (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setEditingAddressId("");
-                        setAddressLabel("");
-                        setLocation(emptyLocation);
-                        setAddressPrimary(true);
-                        setShowAddressForm((open) => !open);
-                      }}
-                      className="flex items-center gap-1 font-button-text text-primary"
-                    >
-                      <MaterialSymbol name="add_circle" className="text-[20px]" />
-                      Add
-                    </button>
-                  ) : null}
-                </div>
-
-                {showAddressForm ? (
-                  <form
-                    onSubmit={saveAddress}
-                    className="space-y-3 rounded-xl bg-surface-container-low p-4"
-                    noValidate
-                  >
+                  <div className="space-y-4 rounded-xl bg-surface-container-low p-4">
                     <label className="block space-y-1">
                       <span className="font-label-technical text-label-technical uppercase text-outline">
-                        Location Label
+                        Company Name
                       </span>
                       <input
-                        value={addressLabel}
-                        onChange={(event) => setAddressLabel(event.target.value)}
-                        placeholder="Cikarang Warehouse"
+                        value={companyName}
+                        onChange={(event) => setCompanyName(event.target.value)}
+                        readOnly={!data.canManage}
+                        required
                         className={cn(
-                          "h-11 w-full rounded-lg border border-transparent bg-surface-container px-3 outline-none focus:ring-2 focus:ring-primary/20",
-                          inputErrorClass(Boolean(fieldErrors.label))
+                          "h-12 w-full rounded-lg border border-transparent bg-surface-container px-3 font-body-md text-on-surface outline-none focus:ring-2 focus:ring-primary/20 read-only:opacity-70",
+                          inputErrorClass(Boolean(fieldErrors.companyName))
                         )}
                       />
-                      <FieldHint message="Short label for this facility or office." />
-                      <FieldError message={fieldErrors.label} />
+                      <FieldError message={fieldErrors.companyName} />
                     </label>
-                    <IndonesiaAddressFields
-                      value={location}
-                      onChange={setLocation}
-                      errors={fieldErrors}
-                    />
-                    <label className="flex items-center gap-2 text-body-sm text-on-surface-variant">
+                    <label className="block space-y-1">
+                      <span className="font-label-technical text-label-technical uppercase text-outline">
+                        NPWP (15 or 16 digits)
+                      </span>
                       <input
-                        type="checkbox"
-                        checked={addressPrimary}
-                        onChange={(event) => setAddressPrimary(event.target.checked)}
+                        value={npwp}
+                        onChange={(event) => setNpwp(formatNpwpDisplay(event.target.value))}
+                        readOnly={!data.canManage}
+                        inputMode="numeric"
+                        placeholder="01.234.567.8-012.000"
+                        className={cn(
+                          "h-12 w-full rounded-lg border border-transparent bg-surface-container px-3 font-body-md text-on-surface outline-none focus:ring-2 focus:ring-primary/20 read-only:opacity-70",
+                          inputErrorClass(Boolean(fieldErrors.npwpNumber))
+                        )}
                       />
-                      Set as primary address
+                      <FieldHint message="Enter 15 digits (legacy) or 16 digits (new NPWP / NIK)." />
+                      <FieldError message={fieldErrors.npwpNumber} />
                     </label>
-                    <div className="flex gap-2">
+                    <label className="block space-y-1">
+                      <span className="font-label-technical text-label-technical uppercase text-outline">
+                        NIB (13 digits)
+                      </span>
+                      <input
+                        value={nib}
+                        onChange={(event) => setNib(normalizeNib(event.target.value))}
+                        readOnly={!data.canManage}
+                        inputMode="numeric"
+                        placeholder="1234567890123"
+                        maxLength={13}
+                        className={cn(
+                          "h-12 w-full rounded-lg border border-transparent bg-surface-container px-3 font-body-md text-on-surface outline-none focus:ring-2 focus:ring-primary/20 read-only:opacity-70",
+                          inputErrorClass(Boolean(fieldErrors.nibNumber))
+                        )}
+                      />
+                      <FieldHint message="Business Identification Number (NIB) must be exactly 13 digits." />
+                      <FieldError message={fieldErrors.nibNumber} />
+                    </label>
+                  </div>
+                </section>
+
+                <section className="space-y-4">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <MaterialSymbol name="factory" className="text-primary" />
+                      <h2 className="font-headline-md text-headline-md text-on-surface">Facilities</h2>
+                    </div>
+                    {data.canManage ? (
                       <button
                         type="button"
-                        onClick={() => setShowAddressForm(false)}
-                        className="h-11 flex-1 rounded-xl bg-surface-container-high text-on-surface"
+                        onClick={() => {
+                          setEditingAddressId("");
+                          setAddressLabel("");
+                          setLocation(emptyLocation);
+                          setAddressPrimary(true);
+                          setShowAddressForm((open) => !open);
+                        }}
+                        className="flex items-center gap-1 font-button-text text-primary"
                       >
-                        Cancel
+                        <MaterialSymbol name="add_circle" className="text-[20px]" />
+                        Add
                       </button>
-                      <button
-                        type="submit"
-                        disabled={saving}
-                        className="h-11 flex-1 rounded-xl bg-primary text-on-primary disabled:opacity-60"
-                      >
-                        Save Address
-                      </button>
-                    </div>
-                  </form>
-                ) : null}
+                    ) : null}
+                  </div>
 
-                <div className="space-y-3">
-                  {data.business.addresses.length ? (
-                    data.business.addresses.map((address) => (
-                      <article
-                        key={address.id}
-                        className="overflow-hidden rounded-xl bg-surface-container-lowest shadow-sm"
-                      >
-                        <div className="flex h-20 items-center justify-center bg-surface-container-highest text-primary">
-                          <MaterialSymbol name="location_on" className="text-[36px]" />
-                        </div>
-                        <div className="space-y-3 p-4">
-                          <div>
-                            <div className="flex items-center gap-2">
-                              <h3 className="font-headline-md text-body-lg text-on-surface">
-                                {address.label}
-                              </h3>
-                              {address.isPrimary ? (
-                                <span className="rounded bg-secondary-container px-2 py-0.5 text-[10px] font-bold uppercase text-on-secondary-container">
-                                  Primary
-                                </span>
+                  {showAddressForm || data.business.addresses.length === 0 ? (
+                    <div className="space-y-3 rounded-xl bg-surface-container-low p-4">
+                      <label className="block space-y-1">
+                        <span className="font-label-technical text-label-technical uppercase text-outline">
+                          Location Label
+                        </span>
+                        <input
+                          value={addressLabel}
+                          onChange={(event) => setAddressLabel(event.target.value)}
+                          placeholder="Cikarang Warehouse"
+                          readOnly={!data.canManage}
+                          className={cn(
+                            "h-11 w-full rounded-lg border border-transparent bg-surface-container px-3 outline-none focus:ring-2 focus:ring-primary/20",
+                            inputErrorClass(Boolean(fieldErrors.label))
+                          )}
+                        />
+                        <FieldHint message="Short label for this facility or office." />
+                        <FieldError message={fieldErrors.label} />
+                      </label>
+                      <IndonesiaAddressFields
+                        value={location}
+                        onChange={setLocation}
+                        errors={fieldErrors}
+                      />
+                      <label className="flex items-center gap-2 text-body-sm text-on-surface-variant">
+                        <input
+                          type="checkbox"
+                          checked={addressPrimary}
+                          onChange={(event) => setAddressPrimary(event.target.checked)}
+                          disabled={!data.canManage}
+                        />
+                        Set as primary address
+                      </label>
+                      {showAddressForm && data.business.addresses.length > 0 ? (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setShowAddressForm(false);
+                            setEditingAddressId("");
+                            setLocation(emptyLocation);
+                            setAddressLabel("");
+                          }}
+                          className="h-11 w-full rounded-xl bg-surface-container-high text-on-surface"
+                        >
+                          Cancel address edit
+                        </button>
+                      ) : null}
+                    </div>
+                  ) : null}
+
+                  <div className="space-y-3">
+                    {data.business.addresses.length ? (
+                      data.business.addresses.map((address) => {
+                        const query = mapQuery(address);
+                        return (
+                          <article
+                            key={address.id}
+                            className="overflow-hidden rounded-xl bg-surface-container-lowest shadow-sm"
+                          >
+                            <div className="relative aspect-[16/9] bg-surface-container">
+                              <iframe
+                                title={`Map ${address.label}`}
+                                src={`https://www.google.com/maps?q=${encodeURIComponent(query)}&output=embed`}
+                                className="h-full w-full border-0"
+                                loading="lazy"
+                                referrerPolicy="no-referrer-when-downgrade"
+                              />
+                              <a
+                                href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(query)}`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="absolute left-3 top-3 flex items-center gap-1 rounded-md border border-border-subtle bg-white/95 px-2 py-1 text-xs font-semibold text-primary shadow-sm"
+                              >
+                                <MaterialSymbol name="near_me" className="text-[16px]" />
+                                Open Maps
+                              </a>
+                            </div>
+                            <div className="space-y-3 p-4">
+                              <div>
+                                <div className="flex items-center gap-2">
+                                  <h3 className="font-headline-md text-body-lg text-on-surface">
+                                    {address.label}
+                                  </h3>
+                                  {address.isPrimary ? (
+                                    <span className="rounded bg-secondary-container px-2 py-0.5 text-[10px] font-bold uppercase text-on-secondary-container">
+                                      Primary
+                                    </span>
+                                  ) : null}
+                                </div>
+                                <p className="font-body-sm text-body-sm text-on-surface-variant">
+                                  {address.addressDetail}, {address.city}
+                                  {address.postalCode ? `, ${address.postalCode}` : ""}
+                                </p>
+                              </div>
+                              {data.canManage ? (
+                                <div className="flex justify-end gap-2 border-t border-border-subtle pt-3">
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setEditingAddressId(address.id);
+                                      setAddressLabel(address.label);
+                                      setLocation({
+                                        ...emptyLocation,
+                                        detail: address.addressDetail,
+                                        postalCode: address.postalCode ?? "",
+                                        provinceName: address.city,
+                                      });
+                                      setAddressPrimary(address.isPrimary);
+                                      setShowAddressForm(true);
+                                    }}
+                                    className="flex h-10 w-10 items-center justify-center rounded-full bg-surface-container text-primary"
+                                    aria-label={`Edit ${address.label}`}
+                                  >
+                                    <MaterialSymbol name="edit" />
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => deleteAddress(address.id)}
+                                    className="flex h-10 w-10 items-center justify-center rounded-full bg-error-container text-error"
+                                    aria-label={`Delete ${address.label}`}
+                                  >
+                                    <MaterialSymbol name="delete" />
+                                  </button>
+                                </div>
                               ) : null}
                             </div>
-                            <p className="font-body-sm text-body-sm text-on-surface-variant">
-                              {address.addressDetail}, {address.city}
-                              {address.postalCode ? `, ${address.postalCode}` : ""}
-                            </p>
-                          </div>
-                          {data.canManage ? (
-                            <div className="flex justify-end gap-2 border-t border-border-subtle pt-3">
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  setEditingAddressId(address.id);
-                                  setAddressLabel(address.label);
-                                  setLocation({
-                                    ...emptyLocation,
-                                    detail: address.addressDetail,
-                                    postalCode: address.postalCode ?? "",
-                                    // Prefill city text; user re-selects cascade if needed
-                                    provinceName: address.city,
-                                  });
-                                  setAddressPrimary(address.isPrimary);
-                                  setShowAddressForm(true);
-                                }}
-                                className="flex h-10 w-10 items-center justify-center rounded-full bg-surface-container text-primary"
-                                aria-label={`Edit ${address.label}`}
-                              >
-                                <MaterialSymbol name="edit" />
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => deleteAddress(address.id)}
-                                className="flex h-10 w-10 items-center justify-center rounded-full bg-error-container text-error"
-                                aria-label={`Delete ${address.label}`}
-                              >
-                                <MaterialSymbol name="delete" />
-                              </button>
-                            </div>
-                          ) : null}
-                        </div>
-                      </article>
-                    ))
-                  ) : (
-                    <div className="rounded-xl bg-surface-container-low p-6 text-center">
-                      <MaterialSymbol name="add_location_alt" className="text-[36px] text-outline" />
-                      <p className="mt-2 text-body-sm text-on-surface-variant">
-                        No company address yet.
-                      </p>
-                    </div>
-                  )}
-                </div>
-              </section>
+                          </article>
+                        );
+                      })
+                    ) : (
+                      <div className="rounded-xl bg-surface-container-low p-6 text-center">
+                        <MaterialSymbol name="add_location_alt" className="text-[36px] text-outline" />
+                        <p className="mt-2 text-body-sm text-on-surface-variant">
+                          Add a facility address above, then tap Save.
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                </section>
+
+                {data.canManage ? (
+                  <button
+                    type="submit"
+                    disabled={saving}
+                    className="flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-primary font-button-text text-on-primary disabled:opacity-60"
+                  >
+                    <MaterialSymbol name={saved ? "check_circle" : "save"} />
+                    {saved ? "Saved" : saving ? "Saving…" : "Save"}
+                  </button>
+                ) : (
+                  <p className="text-body-sm text-on-surface-variant">
+                    Company data is managed by the primary buyer or an administrator.
+                  </p>
+                )}
+              </form>
 
               <section className="space-y-4 pb-4">
                 <div className="flex items-center gap-2">
@@ -572,6 +647,21 @@ export default function BusinessIdentityClient() {
                     </div>
                   ))}
                 </div>
+
+                {pendingInvites.length > 0 ? (
+                  <div className="space-y-2 rounded-xl border border-dashed border-primary/30 bg-primary/5 p-4">
+                    <p className="font-button-text text-sm text-primary">Pending invites</p>
+                    {pendingInvites.map((invite) => (
+                      <div key={invite.id} className="text-body-sm text-on-surface-variant">
+                        <span className="font-medium text-on-surface">{invite.name}</span>
+                        {" · "}
+                        {invite.email}
+                        {invite.position ? ` · ${invite.position}` : ""}
+                      </div>
+                    ))}
+                  </div>
+                ) : null}
+
                 {data.canManage ? (
                   <>
                     <button
@@ -647,8 +737,21 @@ export default function BusinessIdentityClient() {
                       </form>
                     ) : null}
                     {inviteResult ? (
-                      <div className="whitespace-pre-wrap rounded-xl border border-primary/20 bg-primary/5 p-3 text-body-sm text-on-surface">
+                      <div className="space-y-2 whitespace-pre-wrap rounded-xl border border-primary/20 bg-primary/5 p-3 text-body-sm text-on-surface">
                         {inviteResult}
+                        {inviteResult.includes("http") ? (
+                          <button
+                            type="button"
+                            className="mt-2 text-sm font-semibold text-primary underline"
+                            onClick={() => {
+                              const url = inviteResult.split("\n").find((line) => line.startsWith("http"));
+                              if (url) void navigator.clipboard.writeText(url);
+                              showSuccess("Invite link copied.");
+                            }}
+                          >
+                            Copy invite link
+                          </button>
+                        ) : null}
                       </div>
                     ) : null}
                     <p className="text-center text-xs text-on-surface-variant">
@@ -680,94 +783,5 @@ function VerificationBadge({ verified, complete }: { verified: boolean; complete
       />
       {verified ? "Verified" : complete ? "Complete" : "Incomplete"}
     </span>
-  );
-}
-
-function BusinessField({
-  name,
-  label,
-  defaultValue,
-  placeholder,
-  readOnly,
-  required = false,
-  error,
-}: {
-  name: string;
-  label: string;
-  defaultValue: string;
-  placeholder?: string;
-  readOnly: boolean;
-  required?: boolean;
-  error?: string;
-}) {
-  return (
-    <label className="block space-y-1">
-      <span className="font-label-technical text-label-technical uppercase text-outline">{label}</span>
-      <input
-        key={defaultValue}
-        name={name}
-        defaultValue={defaultValue}
-        placeholder={placeholder}
-        readOnly={readOnly}
-        required={required}
-        aria-invalid={Boolean(error)}
-        className={cn(
-          "h-12 w-full rounded-lg border border-transparent bg-surface-container px-3 font-body-md text-on-surface outline-none focus:ring-2 focus:ring-primary/20 read-only:cursor-not-allowed read-only:opacity-70",
-          inputErrorClass(Boolean(error))
-        )}
-      />
-      <FieldError message={error} />
-    </label>
-  );
-}
-
-function AddressInput({
-  label,
-  value,
-  onChange,
-  placeholder,
-  multiline = false,
-  required = true,
-  error,
-}: {
-  label: string;
-  value: string;
-  onChange: (value: string) => void;
-  placeholder: string;
-  multiline?: boolean;
-  required?: boolean;
-  error?: string;
-}) {
-  return (
-    <label className="block space-y-1">
-      <span className="font-label-technical text-label-technical uppercase text-outline">{label}</span>
-      {multiline ? (
-        <textarea
-          value={value}
-          onChange={(event) => onChange(event.target.value)}
-          placeholder={placeholder}
-          required={required}
-          rows={3}
-          aria-invalid={Boolean(error)}
-          className={cn(
-            "w-full resize-none rounded-lg border border-transparent bg-surface-container px-3 py-2 outline-none focus:ring-2 focus:ring-primary/20",
-            inputErrorClass(Boolean(error))
-          )}
-        />
-      ) : (
-        <input
-          value={value}
-          onChange={(event) => onChange(event.target.value)}
-          placeholder={placeholder}
-          required={required}
-          aria-invalid={Boolean(error)}
-          className={cn(
-            "h-11 w-full rounded-lg border border-transparent bg-surface-container px-3 outline-none focus:ring-2 focus:ring-primary/20",
-            inputErrorClass(Boolean(error))
-          )}
-        />
-      )}
-      <FieldError message={error} />
-    </label>
   );
 }

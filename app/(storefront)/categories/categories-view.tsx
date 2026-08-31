@@ -3,7 +3,11 @@
 import { useMemo, useState, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { MaterialSymbol } from "@/components/ui/material-symbol";
-import type { StorefrontCategory } from "@/lib/storefront/categories";
+import {
+  collectCategorySlugs,
+  flattenCategoryTree,
+  type StorefrontCategory,
+} from "@/lib/storefront/category-utils";
 import type { Product } from "@/lib/storefront/product-types";
 import {
   filterAndSortProducts,
@@ -47,16 +51,29 @@ export function CategoriesView({
   products: Product[];
   categories: StorefrontCategory[];
 }) {
-  const tabs = useMemo(() => categories, [categories]);
-  const tabsWithAll = [ALL_CATEGORY, ...tabs];
+  const flatCategories = useMemo(() => flattenCategoryTree(categories), [categories]);
+  const rootTabs = useMemo(() => categories, [categories]);
+  const tabsWithAll = [ALL_CATEGORY, ...rootTabs];
   const searchParams = useSearchParams();
   const router = useRouter();
 
   const initialCat = searchParams.get("cat");
   const defaultCat =
-    initialCat && tabs.some((c) => c.id === initialCat) ? initialCat : "all";
+    initialCat && flatCategories.some((c) => c.id === initialCat) ? initialCat : "all";
+
+  function resolveExpandedParent(cat: string): string | null {
+    if (cat === "all") return null;
+    const parent = categories.find((c) => c.children?.some((ch) => ch.id === cat));
+    if (parent) return parent.id;
+    const root = categories.find((c) => c.id === cat);
+    if (root?.children?.length) return root.id;
+    return null;
+  }
 
   const [activeCat, setActiveCat] = useState(defaultCat);
+  const [expandedParent, setExpandedParent] = useState<string | null>(() =>
+    resolveExpandedParent(defaultCat)
+  );
   const [applied, setApplied] = useState<CatalogFilterState>(() =>
     defaultFilters(searchParams, defaultCat)
   );
@@ -69,12 +86,26 @@ export function CategoriesView({
   useEffect(() => {
     queueMicrotask(() => {
       setActiveCat(defaultCat);
+      setExpandedParent(resolveExpandedParent(defaultCat));
       const next = defaultFilters(searchParams, defaultCat);
       setApplied(next);
       setDraft(next);
       setPage(1);
     });
-  }, [defaultCat, searchParams]);
+  }, [defaultCat, searchParams, categories]);
+
+  const childTabs = useMemo(() => {
+    if (!expandedParent) return [];
+    const parent = categories.find((c) => c.id === expandedParent);
+    return parent?.children ?? [];
+  }, [expandedParent, categories]);
+
+  const activeSlugSet = useMemo(() => {
+    if (activeCat === "all") return null;
+    const root = categories.find((c) => c.id === activeCat);
+    if (root?.children?.length) return new Set(collectCategorySlugs(root));
+    return new Set([activeCat]);
+  }, [activeCat, categories]);
 
   const maxPrice = useMemo(
     () => Math.max(...products.map((p) => p.priceAmount ?? 0), 500_000_000),
@@ -82,20 +113,26 @@ export function CategoriesView({
   );
 
   const brandOptions = useMemo(() => {
-    const cats = tabs.map((t) => ({ value: t.id, label: t.name }));
+    const cats = flatCategories.map((t) => ({ value: t.id, label: t.name }));
     return [{ value: "all", label: "All Manufacturers" }, ...cats];
-  }, [tabs]);
+  }, [flatCategories]);
 
   const filtered = useMemo(() => {
     const categoryForFilter =
       applied.brand !== "all" ? applied.brand : activeCat === "all" ? "all" : activeCat;
-    return filterAndSortProducts(products, {
+    let list = filterAndSortProducts(products, {
       ...applied,
-      category: categoryForFilter,
+      category: "all",
       brand: "all",
       q: applied.q || searchParams.get("q") || "",
     });
-  }, [products, applied, activeCat, searchParams]);
+    if (activeSlugSet) {
+      list = list.filter((p) => activeSlugSet.has(p.category));
+    } else if (categoryForFilter !== "all") {
+      list = list.filter((p) => p.category === categoryForFilter);
+    }
+    return list;
+  }, [products, applied, activeCat, activeSlugSet, searchParams]);
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
   const safePage = Math.min(page, totalPages);
@@ -106,7 +143,25 @@ export function CategoriesView({
   const activeCategoryName =
     activeCategoryId === "all"
       ? "Machines"
-      : tabs.find((c) => c.id === activeCategoryId)?.name ?? "Machines";
+      : flatCategories.find((c) => c.id === activeCategoryId)?.name ?? "Machines";
+
+  function selectCategory(id: string) {
+    if (id === "all") {
+      setExpandedParent(null);
+    } else {
+      const root = categories.find((c) => c.id === id);
+      if (root?.children?.length) {
+        setExpandedParent(id);
+      } else {
+        setExpandedParent(resolveExpandedParent(id));
+      }
+    }
+    setActiveCat(id);
+    setApplied((current) => ({ ...current, brand: id }));
+    setDraft((current) => ({ ...current, brand: id }));
+    syncUrl(id);
+    setPage(1);
+  }
 
   function syncUrl(cat: string) {
     const params = new URLSearchParams(searchParams.toString());
@@ -137,21 +192,15 @@ export function CategoriesView({
           </h1>
         </section>
 
-        <section className="mb-6 overflow-x-auto hide-scrollbar whitespace-nowrap border-b border-border-subtle px-margin-mobile">
+        <section className="mb-2 overflow-x-auto hide-scrollbar whitespace-nowrap border-b border-border-subtle px-margin-mobile">
           <div className="flex gap-8">
             {tabsWithAll.map(({ id, name, icon }) => {
-              const active = activeCat === id;
+              const active = activeCat === id || (id !== "all" && expandedParent === id);
               return (
                 <button
                   key={id}
                   type="button"
-                  onClick={() => {
-                    setActiveCat(id);
-                    setApplied((current) => ({ ...current, brand: id }));
-                    setDraft((current) => ({ ...current, brand: id }));
-                    syncUrl(id);
-                    setPage(1);
-                  }}
+                  onClick={() => selectCategory(id)}
                   className={cn(
                     "flex shrink-0 flex-col items-center gap-1 py-3 transition-all",
                     active
@@ -166,6 +215,34 @@ export function CategoriesView({
             })}
           </div>
         </section>
+
+        {childTabs.length > 0 ? (
+          <section className="mb-6 overflow-x-auto hide-scrollbar whitespace-nowrap border-b border-border-subtle bg-surface-container-low/40 px-margin-mobile">
+            <div className="flex gap-6 py-1">
+              {childTabs.map(({ id, name, icon }) => {
+                const active = activeCat === id;
+                return (
+                  <button
+                    key={id}
+                    type="button"
+                    onClick={() => selectCategory(id)}
+                    className={cn(
+                      "flex shrink-0 items-center gap-1.5 rounded-full px-3 py-2 text-body-sm transition-colors",
+                      active
+                        ? "bg-primary/10 font-medium text-primary"
+                        : "text-on-surface-variant hover:bg-surface-variant hover:text-primary"
+                    )}
+                  >
+                    <MaterialSymbol name={icon} className="text-[18px]" />
+                    <span>{name}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </section>
+        ) : (
+          <div className="mb-6" />
+        )}
 
         <CategoryFiltersPanel
           draft={draft}

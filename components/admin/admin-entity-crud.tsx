@@ -10,6 +10,7 @@ import {
   adminFormGridClass,
 } from "./admin-crud-ui";
 import type { ActionResult } from "@/lib/action-result";
+import { AdminIconPicker } from "./admin-icon-picker";
 
 export function CategoryCreateDialog({
   createAction,
@@ -23,7 +24,7 @@ export function CategoryCreateDialog({
       <AdminActionForm action={createAction} className={adminFormGridClass}>
         <AdminFormField label="Slug" name="slug" required />
         <AdminFormField label="Nama" name="name" required />
-        <AdminFormField label="Ikon (Material)" name="icon" defaultValue="category" />
+        <AdminIconPicker defaultValue="category" />
         {parentOptions && parentOptions.length > 0 ? (
           <AdminFormField
             label="Induk (opsional)"
@@ -62,7 +63,7 @@ export function CategoryEditDialog({
         <input type="hidden" name="id" value={row.id} />
         <AdminFormField label="Slug" name="slug" defaultValue={row.slug} required />
         <AdminFormField label="Nama" name="name" defaultValue={row.name} required />
-        <AdminFormField label="Ikon" name="icon" defaultValue={row.icon ?? "category"} />
+        <AdminIconPicker defaultValue={row.icon ?? "category"} />
         {parentOptions && parentOptions.length > 0 ? (
           <AdminFormField
             label="Induk"
@@ -326,42 +327,6 @@ export function FavoriteCreateDialog({
           options={products.map((p) => ({ value: p.id, label: p.label }))}
         />
         <AdminSubmitButton label="Simpan" />
-      </AdminActionForm>
-    </AdminCrudDialog>
-  );
-}
-
-export function RfqEditDialog({
-  row,
-  updateAction,
-}: {
-  row: {
-    id: string;
-    status: string;
-    picName: string;
-    companyName: string;
-  };
-  updateAction: (formData: FormData) => Promise<ActionResult | void>;
-}) {
-  return (
-    <AdminCrudDialog title="Edit RFQ" triggerLabel="Edit" variant="ghost" triggerMode="icon-edit">
-      <AdminActionForm action={updateAction} className={adminFormGridClass} resetOnSuccess={false}>
-        <input type="hidden" name="id" value={row.id} />
-        <AdminFormField
-          label="Status"
-          name="status"
-          as="select"
-          defaultValue={row.status}
-          options={[
-            { value: "PENDING", label: "PENDING" },
-            { value: "PROCESSED", label: "PROCESSED" },
-            { value: "QUOTATION_SENT", label: "QUOTATION_SENT" },
-            { value: "CANCELLED", label: "CANCELLED" },
-          ]}
-        />
-        <AdminFormField label="PIC" name="picName" defaultValue={row.picName} />
-        <AdminFormField label="Perusahaan" name="companyName" defaultValue={row.companyName} />
-        <AdminSubmitButton label="Update" />
       </AdminActionForm>
     </AdminCrudDialog>
   );

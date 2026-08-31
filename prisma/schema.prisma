@@ -60,13 +60,6 @@ enum MediaType {
   VIDEO
 }
 
-enum RfqStatus {
-  PENDING
-  PROCESSED
-  QUOTATION_SENT
-  CANCELLED
-}
-
 // ==========================================
 // 2. COMPANIES & ADDRESSES
 // ==========================================
@@ -132,7 +125,6 @@ model User {
 
   savedItems         SavedItem[]
   cartItems          CartItem[]
-  rfqRequests        RfqRequest[]
   orders             Order[]
   archiveDocuments   ArchiveDocument[]
   activityLogs       ActivityLog[]
@@ -241,7 +233,6 @@ model Product {
   specifications ProductSpecification[]
   savedByUsers   SavedItem[]
   cartItems      CartItem[]
-  rfqItems       RfqItem[]
   orderItems     OrderItem[]
   reviews        ProductReview[]
 
@@ -316,45 +307,7 @@ model CartItem {
 }
 
 // ==========================================
-// 5. RFQ
-// ==========================================
-
-model RfqRequest {
-  id             String    @id @default(uuid())
-  rfqNumber      String    @unique
-  picName        String
-  companyName    String
-  phoneNumber    String
-  companyAddress String    @db.Text
-  totalEstimated Decimal   @db.Decimal(15, 2)
-  status         RfqStatus @default(PENDING)
-
-  userId String?
-  user   User?   @relation(fields: [userId], references: [id], onDelete: SetNull)
-
-  items RfqItem[]
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-}
-
-model RfqItem {
-  id           String     @id @default(uuid())
-  rfqRequestId String
-  rfqRequest   RfqRequest @relation(fields: [rfqRequestId], references: [id], onDelete: Cascade)
-  productId    String
-  product      Product    @relation(fields: [productId], references: [id])
-
-  productName String
-  productSku  String
-  quantity    Int
-  variant     String?
-  price       Decimal @db.Decimal(15, 2)
-  note        String? @db.Text
-}
-
-// ==========================================
-// 5b. ORDERS (Draf PO & transaksi)
+// 5. ORDERS (Draf PO & transaksi)
 // ==========================================
 
 model Order {

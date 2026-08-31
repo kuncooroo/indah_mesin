@@ -18,7 +18,7 @@ import {
 } from "@/components/admin/admin-list-shell";
 import { AdminDeleteButton } from "@/components/admin/admin-crud-ui";
 import { WbsTemplateCreateDialog, WbsTemplateEditDialog } from "@/components/admin/admin-wbs-crud";
-import { AdminPreviewLink } from "@/components/admin/admin-icon-actions";
+import { AdminWbsDetailLink } from "@/components/admin/admin-icon-actions";
 
 type PageProps = {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
@@ -94,7 +94,7 @@ export default async function AdminWbsTemplatesPage({ searchParams }: PageProps)
                   <td className="px-6 py-3">{row._count.orders} order</td>
                   <td className="px-6 py-3">{row.active ? "Aktif" : "Nonaktif"}</td>
                   <AdminActionCell>
-                    <AdminPreviewLink href={`/admin/wbs-templates/${row.id}`} />
+                    <AdminWbsDetailLink href={`/admin/wbs-templates/${row.id}`} />
                     <WbsTemplateEditDialog row={row} updateAction={updateWbsTemplate} />
                     <AdminDeleteButton
                       action={async () => {

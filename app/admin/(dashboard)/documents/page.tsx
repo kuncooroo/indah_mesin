@@ -1,4 +1,5 @@
 import type { Prisma } from "@prisma/client";
+import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import { parseAdminListParams, rowNumber } from "@/lib/admin/list-params";
 import { createArchiveDocument, deleteArchiveDocument } from "@/lib/admin-crud";
@@ -76,14 +77,9 @@ export default async function AdminDocumentsPage({ searchParams }: PageProps) {
                 <tr key={d.id}>
                   <AdminTdNo n={rowNumber(i, params)} />
                   <td className="px-6 py-3">
-                    <a
-                      href={d.fileUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="font-medium text-primary hover:underline"
-                    >
+                    <Link href={d.fileUrl} className="font-medium text-neutral-900 hover:underline">
                       {d.documentName}
-                    </a>
+                    </Link>
                   </td>
                   <td className="px-6 py-3">{d.documentType.replace(/_/g, " ")}</td>
                   <td className="hidden px-6 py-3 font-mono text-xs md:table-cell">

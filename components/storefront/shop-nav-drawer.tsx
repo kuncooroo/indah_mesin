@@ -1,6 +1,5 @@
 "use client";
 
-import Image from "next/image";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { signOut, useSession } from "next-auth/react";
@@ -85,6 +84,12 @@ const PROFILE_NAV_ITEMS: NavItem[] = [
     label: "Privacy Policy",
     icon: "policy",
     match: (p) => p === "/profile/privacy",
+  },
+  {
+    href: "/profile/terms",
+    label: "Terms & Conditions",
+    icon: "gavel",
+    match: (p) => p === "/profile/terms",
   },
 ];
 
@@ -250,11 +255,10 @@ function ShopNavDrawerPanel() {
           <div className="relative shrink-0">
             <div className="flex h-16 w-16 items-center justify-center overflow-hidden rounded-full border-2 border-on-primary/20 bg-primary-fixed font-headline-md text-primary">
               {user?.image ? (
-                <Image
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
                   src={user.image}
                   alt={displayName}
-                  width={64}
-                  height={64}
                   className="h-full w-full object-cover"
                 />
               ) : (

@@ -2,7 +2,7 @@
 
 import { useTransition } from "react";
 import type { AdminRole } from "@prisma/client";
-import { toast } from "sonner";
+import { adminToast } from "@/lib/admin/admin-toast";
 import { updateUserRole } from "@/lib/admin-actions";
 
 const adminRoles: AdminRole[] = ["ADMIN", "SUPERADMIN"];
@@ -27,9 +27,9 @@ export function UserRoleSelect({
         startTransition(async () => {
           try {
             await updateUserRole(userId, role);
-            toast.success("Role admin diperbarui");
+            adminToast.success("Role admin diperbarui");
           } catch (err) {
-            toast.error(err instanceof Error ? err.message : "Gagal memperbarui role");
+            adminToast.error(err instanceof Error ? err.message : "Gagal memperbarui role");
           }
         });
       }}

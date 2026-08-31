@@ -8,13 +8,30 @@ import {
   type FormEvent,
   type ReactNode,
 } from "react";
-import { Pencil, Trash2, Loader2 } from "lucide-react";
-import { toast } from "sonner";
+import { Pencil, Trash2, Loader2, Plus, LayoutTemplate, RotateCcw, FilePlus } from "lucide-react";
+import { adminToast } from "@/lib/admin/admin-toast";
 import { useRouter } from "next/navigation";
 import type { ActionResult } from "@/lib/action-result";
+import { adminIconButtonClass, adminDeleteIconButtonClass } from "@/components/admin/admin-icon-actions";
 
 const AdminDialogCloseCtx = createContext<(() => void) | null>(null);
 const AdminFormPendingCtx = createContext(false);
+
+export type AdminDialogTriggerMode =
+  | "text"
+  | "icon-edit"
+  | "icon-add"
+  | "icon-template"
+  | "icon-reset"
+  | "icon-document";
+
+const TRIGGER_ICONS = {
+  "icon-edit": Pencil,
+  "icon-add": Plus,
+  "icon-template": LayoutTemplate,
+  "icon-reset": RotateCcw,
+  "icon-document": FilePlus,
+} as const;
 
 export function AdminCrudDialog({
   title,
@@ -27,27 +44,30 @@ export function AdminCrudDialog({
   triggerLabel: string;
   children: ReactNode;
   variant?: "primary" | "ghost";
-  triggerMode?: "text" | "icon-edit";
+  triggerMode?: AdminDialogTriggerMode;
 }) {
   const [open, setOpen] = useState(false);
 
-  const triggerClass =
-    variant === "primary"
+  const isIcon = triggerMode !== "text";
+  const TriggerIcon = isIcon ? TRIGGER_ICONS[triggerMode] : null;
+
+  const triggerClass = isIcon
+    ? adminIconButtonClass
+    : variant === "primary"
       ? "rounded-lg bg-neutral-900 px-4 py-2 text-sm font-medium text-white hover:bg-neutral-800"
-      : triggerMode === "icon-edit"
-        ? "inline-flex h-8 w-8 items-center justify-center rounded-md border border-neutral-200 text-neutral-600 transition-colors hover:bg-neutral-50 hover:text-neutral-900"
-        : "rounded-md border border-neutral-200 px-2.5 py-1 text-xs font-medium text-neutral-700 hover:bg-neutral-50";
+      : "rounded-md border border-neutral-200 px-2.5 py-1 text-xs font-medium text-neutral-700 hover:bg-neutral-50";
 
   return (
     <>
       <button
         type="button"
         className={triggerClass}
-        title={triggerMode === "icon-edit" ? triggerLabel : undefined}
+        title={isIcon ? triggerLabel : undefined}
+        aria-label={isIcon ? triggerLabel : undefined}
         onClick={() => setOpen(true)}
       >
-        {triggerMode === "icon-edit" ? (
-          <Pencil className="h-4 w-4" strokeWidth={1.75} />
+        {TriggerIcon ? (
+          <TriggerIcon className="h-4 w-4" strokeWidth={1.75} />
         ) : (
           triggerLabel
         )}
@@ -103,20 +123,20 @@ export function AdminActionForm({
     startTransition(async () => {
       const result = await action(fd);
       if (!result) {
-        toast.success("Berhasil.");
+        adminToast.success("Berhasil.");
         close?.();
         router.refresh();
         if (resetOnSuccess) form.reset();
         return;
       }
       if (result.success) {
-        toast.success(result.message);
+        adminToast.success(result.message);
         close?.();
         router.refresh();
         if (resetOnSuccess) form.reset();
         return;
       }
-      toast.error(result.message);
+      adminToast.error(result.message);
       if (result.fieldErrors) setFieldErrors(result.fieldErrors);
     });
   }
@@ -238,13 +258,13 @@ export function AdminFileField({
       const res = await fetch("/api/admin/upload", { method: "POST", body });
       const data = (await res.json()) as { url?: string; error?: string };
       if (!res.ok || !data.url) {
-        toast.error(data.error ?? "Upload gagal");
+        adminToast.error(data.error ?? "Upload gagal");
         return;
       }
       setUrl(data.url);
-      toast.success("Gambar terunggah");
+      adminToast.success("Gambar terunggah");
     } catch {
-      toast.error("Upload gagal");
+      adminToast.error("Upload gagal");
     } finally {
       setUploading(false);
       e.target.value = "";
@@ -324,12 +344,12 @@ export function AdminDeleteButton({
     startTransition(async () => {
       const result = await action();
       if (!result || result.success) {
-        toast.success(result?.message ?? "Data berhasil dihapus.");
+        adminToast.success(result?.message ?? "Data berhasil dihapus.");
         setConfirmOpen(false);
         router.refresh();
         return;
       }
-      toast.error(result.message);
+      adminToast.error(result.message);
     });
   }
 
@@ -338,14 +358,11 @@ export function AdminDeleteButton({
       <button
         type="button"
         title={label ?? "Hapus"}
-        className={
-          label
-            ? "rounded-md border border-red-200 px-3 py-1.5 text-xs font-medium text-red-700 hover:bg-red-50"
-            : "inline-flex h-8 w-8 items-center justify-center rounded-md border border-red-200 text-red-700 transition-colors hover:bg-red-50"
-        }
+        aria-label={label ?? "Hapus"}
+        className={adminDeleteIconButtonClass}
         onClick={() => setConfirmOpen(true)}
       >
-        {label ? label : <Trash2 className="h-4 w-4" strokeWidth={1.75} />}
+        <Trash2 className="h-4 w-4" strokeWidth={1.75} />
       </button>
       {confirmOpen ? (
         <div className="fixed inset-0 z-[110] flex items-center justify-center p-4">

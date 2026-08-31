@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useSession } from "next-auth/react";
 import { useEffect, useState } from "react";
 import { MaterialSymbol } from "@/components/ui/material-symbol";
 import { useShopNavDrawer } from "@/components/storefront/shop-nav-drawer";
@@ -12,14 +13,16 @@ interface IndustrialHeaderProps {
   showSearch?: boolean;
 }
 
-/** Top App Bar — IndustrialX marketplace */
+/** Top App Bar — MesinBagus marketplace */
 export function IndustrialHeader({
   showAccount = true,
   showSearch = true,
 }: IndustrialHeaderProps) {
   const { openDrawer } = useShopNavDrawer();
+  const { data: session } = useSession();
   const [searchOpen, setSearchOpen] = useState(false);
   const [suggestions, setSuggestions] = useState<Product[]>([]);
+  const avatar = session?.user?.image?.trim() || null;
 
   useEffect(() => {
     if (!searchOpen || suggestions.length > 0) return;
@@ -66,10 +69,15 @@ export function IndustrialHeader({
           {showAccount ? (
             <Link
               href="/profile"
-              className="flex h-8 w-8 items-center justify-center rounded-full bg-primary text-on-primary transition-opacity hover:opacity-90"
+              className="flex h-8 w-8 items-center justify-center overflow-hidden rounded-full bg-primary text-on-primary transition-opacity hover:opacity-90"
               aria-label="Profile"
             >
-              <MaterialSymbol name="person" className="text-[18px]" />
+              {avatar ? (
+                // eslint-disable-next-line @next/next/no-img-element -- local /uploads + Google avatars must render reliably
+                <img src={avatar} alt="" className="h-full w-full object-cover" />
+              ) : (
+                <MaterialSymbol name="person" className="text-[18px]" />
+              )}
             </Link>
           ) : null}
         </div>

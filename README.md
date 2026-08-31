@@ -54,7 +54,17 @@ COLLATE utf8mb4_unicode_ci;
 
 ### 4. Buat file environment
 
-Buat file `.env` pada root project:
+Salin template environment lalu isi nilainya:
+
+```bash
+# Linux/macOS
+cp .env.example .env
+
+# Windows
+copy .env.example .env
+```
+
+Atau buat file `.env` manual pada root project:
 
 ```env
 DATABASE_URL="mysql://root:PASSWORD_DATABASE@127.0.0.1:3306/indah_mesin"
@@ -64,6 +74,9 @@ NEXT_PUBLIC_APP_URL="http://localhost:3000"
 
 GOOGLE_CLIENT_ID=""
 GOOGLE_CLIENT_SECRET=""
+
+# Opsional: kunci akses login admin saat halaman /admin/login disembunyikan
+ADMIN_LOGIN_ACCESS_KEY="ganti-dengan-kunci-rahasia-admin"
 ```
 
 Contoh Laragon apabila user `root` tidak memiliki password:
@@ -72,7 +85,7 @@ Contoh Laragon apabila user `root` tidak memiliki password:
 DATABASE_URL="mysql://root:@127.0.0.1:3306/indah_mesin"
 ```
 
-Jangan commit `.env` ke GitHub. File environment sudah dikecualikan melalui `.gitignore`.
+Jangan commit `.env` ke GitHub. File environment sudah dikecualikan melalui `.gitignore`. Gunakan `.env.example` sebagai referensi variable yang tersedia.
 
 Untuk membuat `AUTH_SECRET`, salah satu caranya:
 
@@ -128,6 +141,30 @@ Buka:
 
 - Storefront: [http://localhost:3000](http://localhost:3000)
 - Admin: [http://localhost:3000/admin/login](http://localhost:3000/admin/login)
+
+## Login admin tersembunyi (superadmin)
+
+Superadmin dapat menyembunyikan halaman `/admin/login` dari publik lewat toggle di dashboard admin. Saat disembunyikan, login tetap bisa diakses dengan query parameter `access` yang cocok dengan nilai `ADMIN_LOGIN_ACCESS_KEY` di `.env`.
+
+1. Set kunci di `.env`:
+
+```env
+ADMIN_LOGIN_ACCESS_KEY="rahasia123"
+```
+
+2. Restart development server setelah mengubah `.env`.
+
+3. Buka URL login dengan kunci tersebut:
+
+```text
+http://localhost:3000/admin/login?access=rahasia123
+```
+
+Catatan:
+
+- Nilai query `access` harus **sama persis** dengan isi `ADMIN_LOGIN_ACCESS_KEY`, bukan nama variable-nya.
+- Jika variable tidak di-set, fitur unlock via URL tidak aktif.
+- Lihat `.env.example` untuk dokumentasi lengkap variable environment.
 
 ## Konfigurasi Google Login
 

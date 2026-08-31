@@ -12,7 +12,7 @@ export type AppRole = "USER" | AdminRole;
 
 async function applyJwt(
   token: Record<string, unknown>,
-  user?: { id: string; username?: string; role?: AppRole } | null,
+  user?: { id: string; username?: string; role?: AppRole; image?: string | null; name?: string | null } | null,
   account?: { provider?: string } | null,
   trigger?: string,
   session?: { name?: string; email?: string; image?: string | null } | null
@@ -21,6 +21,8 @@ async function applyJwt(
     token.sub = user.id;
     token.username = user.username;
     token.role = user.role ?? "USER";
+    if (user.name) token.name = user.name;
+    if (user.image) token.picture = user.image;
   }
   if (account?.provider) {
     token.authProvider = account.provider;
@@ -141,11 +143,14 @@ export const storefrontAuthOptions: NextAuthOptions = {
     async jwt({ token, user, account, trigger, session }) {
       await applyJwt(
         token as Record<string, unknown>,
-        user as { id: string; username?: string; role?: AppRole } | undefined,
+        user as
+          | { id: string; username?: string; role?: AppRole; image?: string | null; name?: string | null }
+          | undefined,
         account,
         trigger,
         session as { name?: string; email?: string; image?: string | null } | undefined
       );
+
       if (account?.provider === "google" && token.email) {
         const dbUser = await prisma.user.findUnique({ where: { email: String(token.email) } });
         if (dbUser) {
@@ -153,6 +158,17 @@ export const storefrontAuthOptions: NextAuthOptions = {
           token.username = dbUser.username ?? undefined;
           token.role = "USER";
           token.picture = dbUser.avatar ?? token.picture;
+          if (dbUser.name) token.name = dbUser.name;
+        }
+      } else if (token.sub && (trigger === "update" || !token.picture)) {
+        // Sync uploaded avatar into JWT (login / session update)
+        const dbUser = await prisma.user.findUnique({
+          where: { id: String(token.sub) },
+          select: { avatar: true, name: true },
+        });
+        if (dbUser) {
+          token.picture = dbUser.avatar ?? token.picture;
+          if (dbUser.name) token.name = dbUser.name;
         }
       }
       return token;

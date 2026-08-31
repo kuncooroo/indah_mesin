@@ -61,8 +61,8 @@ export default function ProfilePrivacyPage() {
                 Data Protection &amp; Transparency
               </h2>
               <p className="max-w-md font-body-md text-body-md text-on-surface-variant">
-                We believe privacy is a fundamental right. This policy outlines how we handle your
-                industrial data with the same precision we apply to our machinery.
+                We believe privacy is a fundamental right. This policy outlines how MesinBagus
+                handles your procurement data with the same care we apply to our machinery.
               </p>
               <div className="mt-4 flex items-center gap-2 font-body-sm text-body-sm text-outline">
                 <MaterialSymbol name="history" className="text-[16px]" />
@@ -107,7 +107,7 @@ export default function ProfilePrivacyPage() {
               </div>
               <div className="space-y-4 font-body-md text-body-md leading-relaxed text-on-surface-variant">
                 <p>
-                  In our B2B industrial environment, we collect specific information necessary to
+                  In the MesinBagus B2B environment, we collect specific information necessary to
                   facilitate high-value transactions and technical support. This includes:
                 </p>
                 <div className="space-y-3 rounded-xl bg-surface-container-lowest p-4">
@@ -148,7 +148,7 @@ export default function ProfilePrivacyPage() {
               <div className="space-y-4 font-body-md text-body-md leading-relaxed text-on-surface-variant">
                 <p>
                   Your data is never &quot;the product.&quot; We use information strictly to power
-                  the following industrial workflows:
+                  the following MesinBagus procurement workflows:
                 </p>
                 <ul className="list-none space-y-4">
                   {[
@@ -212,7 +212,7 @@ export default function ProfilePrivacyPage() {
 
             <footer className="flex flex-col items-center border-t border-outline-variant pb-0 pt-4">
               <p className="text-center font-label-technical text-[11px] uppercase tracking-[0.2em] text-outline">
-                Standard Industrial Privacy Framework v4.2
+                Standard MesinBagus Privacy Framework v4.2
               </p>
             </footer>
           </div>

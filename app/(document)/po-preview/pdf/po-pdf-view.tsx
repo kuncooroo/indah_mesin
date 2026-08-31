@@ -79,6 +79,28 @@ function applyValuesToDocument(frameDocument: Document, values: Record<string, s
   });
 }
 
+/** Compact the DOM clone so capture fits a single A4 page. */
+function prepareCloneForPdf(clonedDoc: Document) {
+  clonedDoc.querySelectorAll(".no-print").forEach((el) => el.remove());
+  const main = clonedDoc.querySelector("main");
+  if (main instanceof HTMLElement) {
+    main.style.padding = "0";
+    main.style.margin = "0";
+    main.style.background = "#ffffff";
+  }
+  const page = clonedDoc.querySelector(".a4-container");
+  if (page instanceof HTMLElement) {
+    page.style.width = "794px";
+    page.style.minHeight = "auto";
+    page.style.margin = "0";
+    page.style.boxShadow = "none";
+    page.style.padding = "28px";
+    page.style.gap = "16px";
+    page.style.display = "flex";
+    page.style.flexDirection = "column";
+  }
+}
+
 export function PoPdfToolbar({
   backHref,
   iframeSrc,
@@ -116,6 +138,7 @@ export function PoPdfToolbar({
 
   function printDocument() {
     populateDocument();
+    iframeRef.current?.contentWindow?.focus();
     iframeRef.current?.contentWindow?.print();
   }
 
@@ -125,47 +148,55 @@ export function PoPdfToolbar({
     const target =
       (frameDocument?.querySelector(".a4-container") as HTMLElement | null) ??
       frameDocument?.body;
-    if (!target) return;
+    if (!target || !frameDocument) return;
 
     setDownloading(true);
     try {
-      // Wait a tick so populated text paints before capture
-      await new Promise((resolve) => window.setTimeout(resolve, 80));
+      await new Promise((resolve) => window.setTimeout(resolve, 100));
+      if (frameDocument.fonts?.ready) {
+        await frameDocument.fonts.ready.catch(() => undefined);
+      }
+
       const canvas = await html2canvas(target, {
         scale: 2,
         useCORS: true,
         allowTaint: true,
         backgroundColor: "#ffffff",
         logging: false,
-        windowWidth: target.scrollWidth,
-        windowHeight: target.scrollHeight,
+        width: 794,
+        windowWidth: 794,
+        onclone: (_doc: Document, element: HTMLElement) => {
+          prepareCloneForPdf(element.ownerDocument);
+          element.style.width = "794px";
+          element.style.minHeight = "auto";
+          element.style.margin = "0";
+          element.style.boxShadow = "none";
+          element.style.padding = "28px";
+          element.style.gap = "16px";
+        },
       } as Parameters<typeof html2canvas>[1]);
 
-      const imgData = canvas.toDataURL("image/png");
+      const imgData = canvas.toDataURL("image/jpeg", 0.95);
       const pdf = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
       const pageWidth = pdf.internal.pageSize.getWidth();
       const pageHeight = pdf.internal.pageSize.getHeight();
-      const imgWidth = pageWidth;
-      const imgHeight = (canvas.height * pageWidth) / canvas.width;
+      const margin = 6;
+      const maxWidth = pageWidth - margin * 2;
+      const maxHeight = pageHeight - margin * 2;
 
-      let heightLeft = imgHeight;
-      let position = 0;
-      pdf.addImage(imgData, "PNG", 0, position, imgWidth, imgHeight);
-      heightLeft -= pageHeight;
+      // Fit entire capture onto a single A4 page (no page split)
+      const ratio = Math.min(maxWidth / canvas.width, maxHeight / canvas.height);
+      const imgWidth = canvas.width * ratio;
+      const imgHeight = canvas.height * ratio;
+      const x = (pageWidth - imgWidth) / 2;
+      const y = margin;
 
-      while (heightLeft > 0) {
-        position = heightLeft - imgHeight;
-        pdf.addPage();
-        pdf.addImage(imgData, "PNG", 0, position, imgWidth, imgHeight);
-        heightLeft -= pageHeight;
-      }
-
+      pdf.addImage(imgData, "JPEG", x, y, imgWidth, imgHeight, undefined, "FAST");
       pdf.save(
         `MesinBagus-${documentData.orderNumber ?? "Purchase-Order"}-${new Date().toISOString().slice(0, 10)}.pdf`
       );
     } catch (reason) {
       console.error("PO PDF capture failed", reason);
-      // Fallback: open print dialog so user can Save as PDF with matching layout
       iframeRef.current?.contentWindow?.print();
     } finally {
       setDownloading(false);
@@ -201,7 +232,7 @@ export function PoPdfToolbar({
             onClick={() => void downloadDocument()}
             disabled={downloading}
             className="flex items-center gap-1 rounded-full bg-primary px-3 py-1.5 text-xs font-semibold text-white active:opacity-80 disabled:opacity-60"
-            title="Download Purchase Order as PDF"
+            title="Download Purchase Order as single-page PDF"
           >
             <MaterialSymbol name="download" className="text-base" />
             {downloading ? "Preparing…" : "Download"}

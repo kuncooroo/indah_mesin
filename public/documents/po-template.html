@@ -112,19 +112,39 @@
             background: white;
             box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1);
         }
+        @page {
+            size: A4 portrait;
+            margin: 12mm;
+        }
         @media print {
-            body { background: white; }
-            .no-print { display: none; }
-            .a4-container { box-shadow: none; margin: 0; width: 100%; }
+            html, body {
+                background: white !important;
+                margin: 0 !important;
+                padding: 0 !important;
+                -webkit-print-color-adjust: exact;
+                print-color-adjust: exact;
+            }
+            main {
+                padding: 0 !important;
+                margin: 0 !important;
+            }
+            .no-print { display: none !important; }
+            .a4-container {
+                box-shadow: none !important;
+                margin: 0 auto !important;
+                width: 100% !important;
+                min-height: auto !important;
+                padding: 8mm !important;
+            }
         }
     </style>
 </head>
 <body class="bg-surface-container-low font-body-md text-on-surface">
 <!-- Page Content (toolbar hanya di shell Next.js /po-preview/pdf) -->
 <main class="py-8 px-4 md:py-12">
-<div class="a4-container p-[20mm] flex flex-col gap-10">
+<div class="a4-container p-[16mm] flex flex-col gap-6">
 <!-- Document Header -->
-<div class="flex justify-between items-start border-b-2 border-primary pb-8">
+<div class="flex justify-between items-start border-b-2 border-primary pb-5">
 <div>
 <h1 class="font-headline-lg text-headline-lg text-primary tracking-tight">PURCHASE ORDER</h1>
 <div class="mt-4 flex flex-col gap-1">
@@ -181,21 +201,19 @@
 </thead>
 <tbody>
 <tr class="border-b border-border-subtle bg-white">
-<td id="po-product-sku" class="py-4 px-4 font-label-technical text-label-technical">FDP-RTR-500</td>
-<td class="py-4 px-4">
+<td id="po-product-sku" class="py-3 px-3 font-label-technical text-label-technical">FDP-RTR-500</td>
+<td class="py-3 px-3">
 <div id="po-product-name" class="font-body-md text-body-md font-bold">Industrial Retort Sterilizer</div>
 <div id="po-product-variant" class="text-on-surface-variant text-sm mt-1 font-label-technical">Voltage: 380V / 3 Phase</div>
 </td>
-<td id="po-product-quantity" class="py-4 px-4 text-right font-body-md">1 Unit</td>
-<td id="po-product-price" class="py-4 px-4 text-right font-body-md">Rp 285.000.000</td>
-<td id="po-product-total" class="py-4 px-4 text-right font-body-md font-bold">Rp 285.000.000</td>
+<td id="po-product-quantity" class="py-3 px-3 text-right font-body-md">1 Unit</td>
+<td id="po-product-price" class="py-3 px-3 text-right font-body-md">Rp 285.000.000</td>
+<td id="po-product-total" class="py-3 px-3 text-right font-body-md font-bold">Rp 285.000.000</td>
 </tr>
-<!-- Empty spacer rows for visual feel -->
-<tr class="h-12 bg-metallic-bg/30"><td></td><td></td><td></td><td></td><td></td></tr>
 </tbody>
 </table>
 <!-- Summary Grid -->
-<div class="flex justify-end mt-6">
+<div class="flex justify-end mt-4">
 <div class="w-80 space-y-3">
 <div class="flex justify-between items-center text-on-surface-variant">
 <span class="font-body-sm text-body-sm">Subtotal</span>
@@ -214,12 +232,12 @@
 </div>
 </div>
 <!-- Terms & Conditions -->
-<div class="bg-surface-container-low p-6 rounded border border-border-subtle">
-<h3 class="font-label-technical text-label-technical text-primary uppercase mb-3 flex items-center gap-2">
+<div class="bg-surface-container-low p-4 rounded border border-border-subtle">
+<h3 class="font-label-technical text-label-technical text-primary uppercase mb-2 flex items-center gap-2">
 <span class="material-symbols-outlined text-sm">gavel</span>
                     Terms &amp; Conditions
                 </h3>
-<ul class="font-body-sm text-body-sm text-on-surface-variant space-y-2 list-disc pl-4">
+<ul class="font-body-sm text-body-sm text-on-surface-variant space-y-1 list-disc pl-4">
 <li>This Purchase Order is valid for 14 working days from the date of issuance.</li>
 <li>Payment terms: 50% Down Payment, 50% prior to dispatch from warehouse.</li>
 <li>Shipping is handled by the buyer unless otherwise stated in a separate service agreement.</li>
@@ -227,16 +245,16 @@
 </ul>
 </div>
 <!-- Signature Section -->
-<div class="grid grid-cols-2 gap-12 mt-auto pt-10">
-<div class="flex flex-col gap-20">
+<div class="grid grid-cols-2 gap-10 mt-auto pt-4">
+<div class="flex flex-col gap-12">
 <div class="flex flex-col gap-1">
 <p class="font-label-technical text-label-technical text-on-surface-variant uppercase">Notes</p>
 <p class="font-body-sm text-body-sm italic text-on-surface-variant">Please confirm lead time within 48 hours.</p>
 </div>
 </div>
-<div class="flex flex-col items-center gap-4">
+<div class="flex flex-col items-center gap-3">
 <p class="font-label-technical text-label-technical text-on-surface-variant uppercase">Authorized Signature</p>
-<div class="w-full h-32 border-b-2 border-primary border-dashed flex items-end justify-center pb-2">
+<div class="w-full h-20 border-b-2 border-primary border-dashed flex items-end justify-center pb-2">
 <!-- Space for signature -->
 <span class="text-surface-variant font-body-sm uppercase tracking-[0.5em] select-none opacity-50">STAMP HERE</span>
 </div>
@@ -247,7 +265,7 @@
 </div>
 </div>
 <!-- Footer Small Print -->
-<div class="text-center pt-8 border-t border-border-subtle text-[10px] text-outline font-label-technical uppercase tracking-widest">
+<div class="text-center pt-4 border-t border-border-subtle text-[10px] text-outline font-label-technical uppercase tracking-widest">
                 Generated via MesinBagus Digital Procurement Platform • Document Ref: <span id="po-ref">—</span>
             </div>
 </div>

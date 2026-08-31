@@ -33,6 +33,7 @@ export async function proxy(req: NextRequest) {
 
   const publicProfilePaths = [
     "/profile/privacy",
+    "/profile/terms",
     "/profile/forgot-password",
     "/profile/reset-password",
     "/profile/invite",

@@ -24,6 +24,8 @@ import {
 
 import { AdminDeleteButton } from "@/components/admin/admin-crud-ui";
 
+import { MaterialSymbol } from "@/components/ui/material-symbol";
+
 import { CategoryCreateDialog, CategoryEditDialog } from "@/components/admin/admin-entity-crud";
 
 
@@ -130,7 +132,16 @@ export default async function AdminCategoriesPage({ searchParams }: PageProps) {
 
                   <td className="px-6 py-3 font-medium">{c.name}</td>
 
-                  <td className="px-6 py-3 text-neutral-600">{c.icon ?? "—"}</td>
+                  <td className="px-6 py-3">
+                    {c.icon ? (
+                      <span className="inline-flex items-center gap-2 text-neutral-700">
+                        <MaterialSymbol name={c.icon} className="text-[20px] text-neutral-900" />
+                        <span className="font-mono text-xs text-neutral-500">{c.icon}</span>
+                      </span>
+                    ) : (
+                      "—"
+                    )}
+                  </td>
 
                   <AdminActionCell>
 

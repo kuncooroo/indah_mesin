@@ -42,7 +42,7 @@ export default async function AdminProductsPage({ searchParams }: PageProps) {
       where,
       include: {
         category: true,
-        media: { where: { isPrimary: true }, take: 1 },
+        media: { orderBy: { sortOrder: "asc" } },
       },
       orderBy: adminProductOrderBy(params.sort),
       skip: params.skip,
@@ -100,7 +100,8 @@ export default async function AdminProductsPage({ searchParams }: PageProps) {
                 </tr>
               ) : (
                 rows.map((p, i) => {
-                  const image = p.media[0]?.url;
+                  const primary = p.media.find((m) => m.isPrimary) ?? p.media[0];
+                  const image = primary?.url;
                   return (
                     <tr key={p.id} className="align-middle">
                       <AdminTdNo n={rowNumber(i, params)} />
@@ -143,6 +144,12 @@ export default async function AdminProductsPage({ searchParams }: PageProps) {
                             isPublished: p.isPublished,
                           }}
                           primaryImageUrl={image}
+                          media={p.media.map((m) => ({
+                            id: m.id,
+                            url: m.url,
+                            isPrimary: m.isPrimary,
+                            sortOrder: m.sortOrder,
+                          }))}
                           categories={categoryOptions}
                           updateAction={updateProduct}
                         />

@@ -7,23 +7,11 @@ import {
   safeArchiveDocumentCount,
 } from "@/lib/admin/safe-model-count";
 import { adminModuleRegistry } from "@/services/admin/module-registry";
-import type { AdminDashboardInsight, AdminModuleSummary } from "@/types/admin/marketplace-module";
+import type { AdminModuleSummary } from "@/types/admin/marketplace-module";
 import {
   shopCatalogProductWhere,
   shopCatalogCategoryWhere,
 } from "@/lib/storefront/catalog-data";
-
-export async function getAdminDashboardInsights(): Promise<AdminDashboardInsight> {
-  const [savedItemsTotal, legacyRfqTotal, userTotal, adminTotal, orderTotal] = await Promise.all([
-    prisma.savedItem.count(),
-    prisma.rfqRequest.count(),
-    prisma.user.count(),
-    prisma.admin.count(),
-    safeOrderCount(),
-  ]);
-
-  return { savedItemsTotal, legacyRfqTotal, userTotal, adminTotal, orderTotal };
-}
 
 export async function getAdminDashboardSummary(): Promise<AdminModuleSummary[]> {
   const [

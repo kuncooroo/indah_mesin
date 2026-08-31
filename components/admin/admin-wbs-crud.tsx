@@ -17,7 +17,11 @@ export function WbsTemplateCreateDialog({
   createAction: (formData: FormData) => Promise<ActionResult | void>;
 }) {
   return (
-    <AdminCrudDialog title="Tambah Template WBS" triggerLabel="+ Template WBS">
+    <AdminCrudDialog
+      title="Tambah Template WBS"
+      triggerLabel="Tambah template WBS"
+      triggerMode="icon-add"
+    >
       <AdminActionForm action={createAction} className={adminFormGridClass}>
         <AdminFormField label="Nama" name="name" required />
         <AdminFormField
@@ -90,7 +94,8 @@ export function WbsTemplateItemCreateDialog({
   return (
     <AdminCrudDialog
       title={isChild ? `Sub-tugas: ${parentTitle ?? ""}` : "Tambah fase (parent)"}
-      triggerLabel={isChild ? "+ Sub" : "+ Fase parent"}
+      triggerLabel={isChild ? "Tambah sub-tugas" : "Tambah fase"}
+      triggerMode="icon-add"
       variant={isChild ? "ghost" : "primary"}
     >
       <AdminActionForm action={createAction} className={adminFormGridClass}>
@@ -185,8 +190,9 @@ export function ProgressTaskUpdateDialog({
   return (
     <AdminCrudDialog
       title={`Update: ${row.title}`}
-      triggerLabel="Update"
+      triggerLabel="Update progress"
       variant="ghost"
+      triggerMode="icon-edit"
     >
       <AdminActionForm action={updateAction} className={adminFormGridClass} resetOnSuccess={false}>
         <input type="hidden" name="id" value={row.id} />
@@ -232,7 +238,11 @@ export function ApplyWbsTemplateDialog({
   applyAction: (formData: FormData) => Promise<ActionResult | void>;
 }) {
   return (
-    <AdminCrudDialog title="Apply Template WBS" triggerLabel="+ Apply Template">
+    <AdminCrudDialog
+      title="Apply Template WBS"
+      triggerLabel="Apply template WBS"
+      triggerMode="icon-template"
+    >
       <AdminActionForm action={applyAction} className={adminFormGridClass}>
         <input type="hidden" name="orderId" value={orderId} />
         <AdminFormField

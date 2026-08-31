@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import {
@@ -15,6 +14,7 @@ import {
   WbsTemplateItemCreateDialog,
   WbsTemplateItemEditDialog,
 } from "@/components/admin/admin-wbs-crud";
+import { AdminActionGroup, AdminBackLink, AdminPageToolbar } from "@/components/admin/admin-icon-actions";
 
 type PageProps = { params: Promise<{ id: string }> };
 
@@ -36,22 +36,18 @@ export default async function AdminWbsTemplateDetailPage({ params }: PageProps) 
 
   return (
     <>
-      <div className="mb-4">
-        <Link href="/admin/wbs-templates" className="text-sm text-neutral-500 hover:text-neutral-800">
-          ← Kembali ke template
-        </Link>
-      </div>
-      <AdminPageHeader
-        title={template.name}
-        description={`Estimasi ${template.estimatedDays} hari · ${template.active ? "Aktif" : "Nonaktif"}`}
-      />
-      <div className="mb-6 flex flex-wrap gap-2">
+      <AdminPageToolbar>
+        <AdminBackLink href="/admin/wbs-templates" title="Kembali ke daftar template" />
         <WbsTemplateEditDialog row={template} updateAction={updateWbsTemplate} />
         <WbsTemplateItemCreateDialog
           templateId={template.id}
           createAction={createWbsTemplateItem}
         />
-      </div>
+      </AdminPageToolbar>
+      <AdminPageHeader
+        title={template.name}
+        description={`Estimasi ${template.estimatedDays} hari · ${template.active ? "Aktif" : "Nonaktif"}`}
+      />
 
       {template.description ? (
         <p className="mb-6 max-w-2xl text-sm text-neutral-600">{template.description}</p>
@@ -76,7 +72,7 @@ export default async function AdminWbsTemplateDetailPage({ params }: PageProps) 
                   </p>
                   <h3 className="font-semibold text-neutral-900">{parent.title}</h3>
                 </div>
-                <div className="flex flex-wrap items-center gap-2">
+                <AdminActionGroup>
                   <WbsTemplateItemCreateDialog
                     templateId={template.id}
                     parentId={parent.id}
@@ -93,7 +89,7 @@ export default async function AdminWbsTemplateDetailPage({ params }: PageProps) 
                       await deleteWbsTemplateItem(parent.id);
                     }}
                   />
-                </div>
+                </AdminActionGroup>
               </div>
               <ul className="divide-y divide-neutral-100">
                 {parent.children.length === 0 ? (
@@ -112,7 +108,7 @@ export default async function AdminWbsTemplateDetailPage({ params }: PageProps) 
                           Estimasi {child.estimatedHours ?? 8} jam
                         </p>
                       </div>
-                      <div className="flex gap-2">
+                      <AdminActionGroup>
                         <WbsTemplateItemEditDialog
                           row={child}
                           updateAction={updateWbsTemplateItem}
@@ -123,7 +119,7 @@ export default async function AdminWbsTemplateDetailPage({ params }: PageProps) 
                             await deleteWbsTemplateItem(child.id);
                           }}
                         />
-                      </div>
+                      </AdminActionGroup>
                     </li>
                   ))
                 )}

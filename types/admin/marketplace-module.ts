@@ -21,11 +21,3 @@ export type AdminModuleSummary = {
   shopHref: string | null;
   stitchScreenTitle: string;
 };
-
-export type AdminDashboardInsight = {
-  savedItemsTotal: number;
-  legacyRfqTotal: number;
-  userTotal?: number;
-  adminTotal?: number;
-  orderTotal?: number;
-};

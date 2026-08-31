@@ -1,6 +1,6 @@
 "use client";
 
-import Image from "next/image";
+import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { ChangeEvent, Suspense, useEffect, useRef, useState } from "react";
@@ -211,12 +211,10 @@ function ProfileSettingsClient() {
             <div className="group relative">
               <div className="flex h-24 w-24 items-center justify-center overflow-hidden rounded-full bg-primary-fixed font-headline-lg-mobile text-2xl text-primary shadow-md">
                 {avatar ? (
-                  <Image
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
                     src={avatar}
                     alt={name || "Profile photo"}
-                    width={96}
-                    height={96}
-                    unoptimized={avatar.startsWith("data:")}
                     className="h-full w-full object-cover"
                   />
                 ) : (
@@ -371,6 +369,39 @@ function ProfileSettingsClient() {
                   </div>
                 </div>
               ) : null}
+
+              <Link
+                href="/profile/privacy"
+                className="group flex w-full items-center justify-between rounded-xl bg-surface-container-low p-4 transition-colors hover:bg-surface-container-high"
+              >
+                <div className="flex flex-col items-start">
+                  <span className="font-body-md font-medium text-on-surface">Privacy Policy</span>
+                  <span className="font-body-sm text-on-surface-variant">
+                    How MesinBagus collects and protects your data
+                  </span>
+                </div>
+                <MaterialSymbol
+                  name="chevron_right"
+                  className="text-on-surface-variant transition-transform group-hover:translate-x-1"
+                />
+              </Link>
+              <Link
+                href="/profile/terms"
+                className="group flex w-full items-center justify-between rounded-xl bg-surface-container-low p-4 transition-colors hover:bg-surface-container-high"
+              >
+                <div className="flex flex-col items-start">
+                  <span className="font-body-md font-medium text-on-surface">
+                    Terms &amp; Conditions
+                  </span>
+                  <span className="font-body-sm text-on-surface-variant">
+                    Rules for using the MesinBagus platform
+                  </span>
+                </div>
+                <MaterialSymbol
+                  name="chevron_right"
+                  className="text-on-surface-variant transition-transform group-hover:translate-x-1"
+                />
+              </Link>
             </div>
           </div>
 

@@ -1,7 +1,7 @@
 "use client";
 
 import { useTransition } from "react";
-import { toast } from "sonner";
+import { adminToast } from "@/lib/admin/admin-toast";
 import { setProductPublished } from "@/lib/admin-actions";
 
 export function ProductPublishToggle({
@@ -17,9 +17,9 @@ export function ProductPublishToggle({
     startTransition(async () => {
       try {
         await setProductPublished(productId, !published);
-        toast.success(published ? "Produk dinonaktifkan" : "Produk diaktifkan");
+        adminToast.success(published ? "Produk dinonaktifkan" : "Produk diaktifkan");
       } catch {
-        toast.error("Gagal memperbarui produk");
+        adminToast.error("Gagal memperbarui produk");
       }
     });
   }

@@ -14,6 +14,12 @@ import {
   ApplyWbsTemplateDialog,
   ProgressTaskUpdateDialog,
 } from "@/components/admin/admin-wbs-crud";
+import {
+  AdminActionGroup,
+  AdminBackLink,
+  AdminOrderDetailLink,
+  AdminPageToolbar,
+} from "@/components/admin/admin-icon-actions";
 
 type PageProps = { params: Promise<{ id: string }> };
 
@@ -63,11 +69,10 @@ export default async function AdminOrderProgressPage({ params }: PageProps) {
 
   return (
     <>
-      <div className="mb-4">
-        <Link href="/admin/orders" className="text-sm text-neutral-500 hover:text-neutral-800">
-          ← Kembali ke Order / PO
-        </Link>
-      </div>
+      <AdminPageToolbar>
+        <AdminBackLink href={`/admin/orders/${order.id}`} title="Detail PO" />
+        <AdminOrderDetailLink href={`/admin/orders/${order.id}`} />
+      </AdminPageToolbar>
       <AdminPageHeader
         title={`Progress · ${order.orderNumber}`}
         description={`${order.company?.companyName ?? "—"} · ${order.user?.name ?? "—"}`}
@@ -87,7 +92,7 @@ export default async function AdminOrderProgressPage({ params }: PageProps) {
                 : ""}
             </p>
           </div>
-          <div className="flex flex-wrap gap-2">
+          <AdminActionGroup>
             {order.progressTasks.length === 0 && templates.length > 0 ? (
               <ApplyWbsTemplateDialog
                 orderId={order.id}
@@ -104,7 +109,7 @@ export default async function AdminOrderProgressPage({ params }: PageProps) {
                 }}
               />
             ) : null}
-          </div>
+          </AdminActionGroup>
         </div>
         <div className="mt-4 h-2 overflow-hidden rounded-full bg-neutral-100">
           <div
@@ -158,7 +163,7 @@ export default async function AdminOrderProgressPage({ params }: PageProps) {
                         : statusLabel(parent.status)}
                     </p>
                   </div>
-                  <div className="flex items-center gap-2">
+                  <AdminActionGroup>
                     <span
                       className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${statusClass(parent.status)}`}
                     >
@@ -176,7 +181,7 @@ export default async function AdminOrderProgressPage({ params }: PageProps) {
                       }}
                       updateAction={updateProgressTask}
                     />
-                  </div>
+                  </AdminActionGroup>
                 </div>
 
                 <ul className="divide-y divide-neutral-100">
@@ -201,7 +206,7 @@ export default async function AdminOrderProgressPage({ params }: PageProps) {
                               <p className="mt-1 text-xs text-neutral-600">{child.note}</p>
                             ) : null}
                           </div>
-                          <div className="flex items-center gap-2">
+                          <AdminActionGroup>
                             <span
                               className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${statusClass(child.status)}`}
                             >
@@ -219,7 +224,7 @@ export default async function AdminOrderProgressPage({ params }: PageProps) {
                               }}
                               updateAction={updateProgressTask}
                             />
-                          </div>
+                          </AdminActionGroup>
                         </div>
                         {child.photos.length > 0 ? (
                           <div className="mt-3 flex flex-wrap gap-2">

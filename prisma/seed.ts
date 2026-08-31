@@ -1,7 +1,7 @@
 import "dotenv/config";
 import bcrypt from "bcrypt";
 import { PrismaMariaDb } from "@prisma/adapter-mariadb";
-import { PrismaClient, AdminRole, RfqStatus, VerificationStatus, CompanyType, OrderStatus, ArchiveDocumentType } from "@prisma/client";
+import { PrismaClient, AdminRole, VerificationStatus, CompanyType, OrderStatus, ArchiveDocumentType } from "@prisma/client";
 import { MARKETPLACE_CATEGORIES, MARKETPLACE_PRODUCTS, MARKETPLACE_SKUS, MARKETPLACE_QUICK_FILTERS, catalogProductToSeedStatus, parseCatalogPriceIdr } from "../lib/storefront/catalog-data";
 import { stitchArticles } from "../lib/storefront/content-data";
 import { indahMesinContact } from "../lib/storefront/contact";
@@ -414,34 +414,6 @@ async function main() {
           },
         });
       }
-    }
-
-    const rfqNumber = "RFQ-202607-0001";
-    const existing = await prisma.rfqRequest.findUnique({ where: { rfqNumber } });
-    if (!existing) {
-      const price = Number(poProduct.price);
-      await prisma.rfqRequest.create({
-        data: {
-          rfqNumber,
-          userId: demoUser.id,
-          status: RfqStatus.PENDING,
-          picName: demoUser.name,
-          companyName: demoUser.companyName ?? "PT. Pangan Makmur Abadi",
-          phoneNumber: demoUser.phone ?? indahMesinContact.phoneDisplay,
-          companyAddress: demoUser.companyAddress ?? "",
-          totalEstimated: price,
-          items: {
-            create: {
-              productId: poProduct.id,
-              productName: poProduct.name,
-              productSku: poProduct.sku,
-              quantity: 1,
-              variant: "380V / 3 Phase",
-              price,
-            },
-          },
-        },
-      });
     }
 
     const orderNumber = "PO-20260726-001";

@@ -279,7 +279,7 @@ export function ProfileAuthPanel() {
                   />
                   <span className="font-body-sm text-body-sm text-on-surface-variant">
                     I agree to the{" "}
-                    <Link href="/profile/privacy" className="font-semibold text-primary hover:underline">
+                    <Link href="/profile/terms" className="font-semibold text-primary hover:underline">
                       Terms &amp; Conditions
                     </Link>{" "}
                     and{" "}
@@ -383,7 +383,7 @@ export function ProfileAuthPanel() {
           ) : (
             <p className="px-8 font-body-sm text-body-sm text-on-surface-variant">
               By continuing, you agree to our{" "}
-              <Link href="/profile/privacy" className="font-medium text-primary">
+              <Link href="/profile/terms" className="font-medium text-primary">
                 Terms &amp; Conditions
               </Link>{" "}
               and{" "}

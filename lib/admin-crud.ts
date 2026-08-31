@@ -6,7 +6,6 @@ import { getAdminSession, isAdminRole } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import type {
   AdminRole,
-  RfqStatus,
   StockStatus,
   OrderStatus,
   CompanyType,
@@ -406,37 +405,6 @@ export async function deleteSavedItem(id: string): Promise<ActionResult> {
 export const createFavorite = createSavedItem;
 /** @deprecated use deleteSavedItem */
 export const deleteFavorite = deleteSavedItem;
-
-// ——— RFQ ———
-export async function updateRfqRequest(formData: FormData): Promise<ActionResult> {
-  return runAdminAction(async () => {
-    await requireAdmin();
-    const id = String(formData.get("id") ?? "");
-    if (!id) return fail("ID tidak valid.");
-    await prisma.rfqRequest.update({
-      where: { id },
-      data: {
-        status: String(formData.get("status") ?? "PENDING") as RfqStatus,
-        picName: String(formData.get("picName") ?? ""),
-        companyName: String(formData.get("companyName") ?? ""),
-      },
-    });
-    revalidatePath("/admin/orders");
-    return ok("RFQ berhasil diperbarui.");
-  }, "RFQ berhasil diperbarui.");
-}
-
-export async function deleteRfqRequest(id: string): Promise<ActionResult> {
-  return runAdminAction(async () => {
-    await requireAdmin();
-    await prisma.rfqRequest.delete({ where: { id } });
-    revalidatePath("/admin/orders");
-    return ok("RFQ berhasil dihapus.");
-  }, "RFQ berhasil dihapus.");
-}
-
-export const updatePurchaseOrder = updateRfqRequest;
-export const deletePurchaseOrder = deleteRfqRequest;
 
 // ——— FAQ ———
 export async function createFaq(formData: FormData): Promise<ActionResult> {

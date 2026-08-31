@@ -2,9 +2,10 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { ChevronDown, LogOut } from "lucide-react";
+import { ChevronDown } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { adminNavDashboard, adminNavGroups } from "@/lib/admin-nav";
+import { AdminLogoutButton } from "@/components/admin/admin-logout-button";
 import { cn } from "@/lib/utils";
 
 type AdminSidebarProps = {
@@ -165,13 +166,7 @@ export function AdminSidebar({ userName, userEmail, isSuperAdmin }: AdminSidebar
       <div className="border-t border-neutral-100 p-4">
         <p className="truncate text-sm font-semibold text-neutral-900">{userName}</p>
         <p className="truncate text-xs text-neutral-500">{userEmail}</p>
-        <Link
-          href="/api/admin/auth/signout?callbackUrl=/admin/login"
-          className="mt-3 flex w-full items-center justify-center gap-2 rounded-lg border border-neutral-200 bg-neutral-50 px-3 py-2 text-sm font-medium text-neutral-700 transition-colors hover:bg-neutral-100"
-        >
-          <LogOut className="h-4 w-4" />
-          Keluar
-        </Link>
+        <AdminLogoutButton />
       </div>
     </aside>
   );

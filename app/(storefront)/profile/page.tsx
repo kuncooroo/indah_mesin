@@ -1,4 +1,3 @@
-import Image from "next/image";
 import Link from "next/link";
 import { Suspense } from "react";
 
@@ -69,11 +68,10 @@ export default async function ProfilePage() {
             <div className="group relative">
               <div className="flex h-24 w-24 items-center justify-center overflow-hidden rounded-full bg-primary-fixed p-1 font-headline-lg-mobile text-2xl text-primary shadow-sm">
                 {dbUser.avatar ? (
-                  <Image
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
                     src={dbUser.avatar}
                     alt={dbUser.name}
-                    width={96}
-                    height={96}
                     className="h-full w-full rounded-full object-cover"
                   />
                 ) : (
@@ -184,7 +182,7 @@ export default async function ProfilePage() {
               </div>
               <div className="ml-4 flex-1">
                 <div className="font-button-text text-button-text text-on-surface">
-                  Company Profile
+                  Business Identity
                 </div>
                 <div className="line-clamp-1 font-body-sm text-body-sm text-on-surface-variant">
                   Legal details, NPWP, NIB, and office address

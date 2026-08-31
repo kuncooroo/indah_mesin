@@ -2,18 +2,19 @@
 
 import { useState } from "react";
 import { signIn, signOut } from "next-auth/react";
-import { toast } from "sonner";
+import { Eye, EyeOff } from "lucide-react";
+import { adminToast } from "@/lib/admin/admin-toast";
 
 export function AdminLoginForm() {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setLoading(true);
 
-    // SessionProvider admin memakai basePath `/api/admin/auth`
     const result = await signIn("credentials", {
       username: username.trim(),
       password,
@@ -23,7 +24,7 @@ export function AdminLoginForm() {
     setLoading(false);
 
     if (result?.error) {
-      toast.error("Username atau password salah");
+      adminToast.error("Username atau password salah");
       return;
     }
 
@@ -32,12 +33,12 @@ export function AdminLoginForm() {
     const role = session.user?.role;
 
     if (role !== "ADMIN" && role !== "SUPERADMIN") {
-      toast.error("Akun ini bukan admin. Gunakan halaman marketplace.");
+      adminToast.error("Akun ini bukan admin. Gunakan halaman marketplace.");
       await signOut({ redirect: false });
       return;
     }
 
-    toast.success("Login berhasil");
+    adminToast.success("Login berhasil");
     window.location.href = "/admin/dashboard";
   }
 
@@ -61,15 +62,25 @@ export function AdminLoginForm() {
         <label htmlFor="admin-password" className="mb-1.5 block text-sm font-medium text-zinc-700">
           Password
         </label>
-        <input
-          id="admin-password"
-          type="password"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          autoComplete="current-password"
-          required
-          className="w-full rounded-md border border-zinc-300 px-3 py-2 text-sm outline-none ring-zinc-900/10 focus:border-zinc-400 focus:ring-2"
-        />
+        <div className="relative">
+          <input
+            id="admin-password"
+            type={showPassword ? "text" : "password"}
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            autoComplete="current-password"
+            required
+            className="w-full rounded-md border border-zinc-300 px-3 py-2 pr-10 text-sm outline-none ring-zinc-900/10 focus:border-zinc-400 focus:ring-2"
+          />
+          <button
+            type="button"
+            onClick={() => setShowPassword((v) => !v)}
+            className="absolute right-2 top-1/2 -translate-y-1/2 rounded p-1 text-zinc-500 hover:text-zinc-800"
+            aria-label={showPassword ? "Sembunyikan password" : "Tampilkan password"}
+          >
+            {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+          </button>
+        </div>
       </div>
       <button
         type="submit"
