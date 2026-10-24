@@ -110,44 +110,57 @@ export function PoPreviewContent({
     setSending(true);
     setSendError("");
     try {
-      const response = await fetch("/api/po/submit", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          productId: productForMessage.id,
-          quantity: draft.quantity,
-          voltage: draft.voltage,
-          requestId: draft.requestId,
-        }),
-      });
-      const result = (await response.json()) as SubmittedPo & {
-        error?: string;
-        completionPath?: string | null;
-      };
-      if (response.status === 401) {
-        popup?.close();
-        window.location.assign("/profile");
-        return;
+      let current = draft;
+      let allowRotate = true;
+      let saved: SubmittedPo | null = null;
+      while (!saved) {
+        const response = await fetch("/api/po/submit", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            productId: productForMessage.id,
+            quantity: current.quantity,
+            voltage: current.voltage,
+            requestId: current.requestId,
+          }),
+        });
+        const result = (await response.json()) as SubmittedPo & {
+          error?: string;
+          completionPath?: string | null;
+        };
+        if (response.status === 401) {
+          popup?.close();
+          window.location.assign("/profile");
+          return;
+        }
+        if (response.status === 422 && result.completionPath) {
+          popup?.close();
+          window.location.assign(result.completionPath);
+          return;
+        }
+        if (response.status === 409 && allowRotate) {
+          current = { ...current, requestId: crypto.randomUUID() };
+          writePoDraft(current, productId);
+          setDraft(current);
+          allowRotate = false;
+          continue;
+        }
+        if (!response.ok) throw new Error(result.error ?? "Gagal menyimpan Purchase Order.");
+        saved = result;
       }
-      if (response.status === 422 && result.completionPath) {
-        popup?.close();
-        window.location.assign(result.completionPath);
-        return;
-      }
-      if (!response.ok) throw new Error(result.error ?? "Gagal menyimpan Purchase Order.");
 
       const whatsappUrl = buildWhatsAppUrlFromText(
         buildPoQuotationMessage({
           product: productForMessage,
           appUrl,
-          voltage: draft.voltage,
-          quantity: draft.quantity,
+          voltage: current.voltage,
+          quantity: current.quantity,
           company: buyer.companyName,
-          poUrl: result.documentUrl,
-          orderNumber: result.orderNumber,
+          poUrl: saved.documentUrl,
+          orderNumber: saved.orderNumber,
         })
       );
-      setSubmittedPo(result);
+      setSubmittedPo(saved);
       if (popup) {
         popup.location.href = whatsappUrl;
       } else {
