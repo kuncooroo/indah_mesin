@@ -5,6 +5,7 @@ import bcrypt from "bcrypt";
 import { getServerSession } from "next-auth";
 import { prisma } from "@/lib/prisma";
 import type { AdminRole } from "@prisma/client";
+import { resolveAdminAccess } from "@/lib/admin-access";
 import { authCookieOptions } from "@/lib/auth-cookies";
 
 /** Role di session JWT: USER = storefront, ADMIN/SUPERADMIN = panel. */
@@ -260,7 +261,21 @@ export async function getStorefrontSession() {
 }
 
 export async function getAdminSession() {
-  return getServerSession(adminAuthOptions);
+  const session = await getServerSession(adminAuthOptions);
+  if (!session?.user?.id) return null;
+
+  const admin = await prisma.admin.findUnique({
+    where: { id: session.user.id },
+    select: { role: true, name: true, email: true, username: true },
+  });
+  const role = resolveAdminAccess(admin);
+  if (!role) return null;
+
+  session.user.role = role;
+  session.user.name = admin?.name ?? session.user.name;
+  session.user.email = admin?.email ?? session.user.email;
+  if (admin?.username) session.user.username = admin.username;
+  return session;
 }
 
 export function isAdminRole(role: AppRole | string | undefined) {
