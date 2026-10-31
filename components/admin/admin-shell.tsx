@@ -1,16 +1,20 @@
-import { getAdminSession } from "@/lib/auth";
+import { redirect } from "next/navigation";
+import { getAdminSession, isAdminRole } from "@/lib/auth";
 import { AdminSidebar } from "@/components/admin/admin-sidebar";
 
 export async function AdminShell({ children }: { children: React.ReactNode }) {
   const session = await getAdminSession();
-  const role = session?.user?.role;
+  if (!session?.user || !isAdminRole(session.user.role)) {
+    redirect("/admin/login");
+  }
+  const role = session.user.role;
   const isSuper = role === "SUPERADMIN";
 
   return (
     <div className="flex min-h-dvh bg-neutral-50 font-sans text-neutral-900 antialiased">
       <AdminSidebar
-        userName={session?.user?.name ?? session?.user?.username ?? "Admin"}
-        userEmail={session?.user?.email ?? `${session?.user?.username ?? "admin"}@indahmesin.com`}
+        userName={session.user.name ?? session.user.username ?? "Admin"}
+        userEmail={session.user.email ?? `${session.user.username ?? "admin"}@indahmesin.com`}
         isSuperAdmin={isSuper}
       />
       <div className="flex min-h-dvh min-w-0 flex-1 flex-col">
