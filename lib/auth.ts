@@ -6,6 +6,10 @@ import { getServerSession } from "next-auth";
 import { prisma } from "@/lib/prisma";
 import type { AdminRole } from "@prisma/client";
 import { authCookieOptions } from "@/lib/auth-cookies";
+import {
+  isCurrentAuthVersion,
+  planGoogleLink,
+} from "@/lib/storefront-auth-version";
 
 /** Role di session JWT: USER = storefront, ADMIN/SUPERADMIN = panel. */
 export type AppRole = "USER" | AdminRole;
@@ -123,21 +127,76 @@ export const storefrontAuthOptions: NextAuthOptions = {
   callbacks: {
     async signIn({ user, account }) {
       if (account?.provider !== "google") return true;
-      if (!user.email) return false;
-      const password = await bcrypt.hash(crypto.randomUUID(), 10);
-      await prisma.user.upsert({
-        where: { email: user.email },
-        create: {
-          name: user.name ?? user.email.split("@")[0],
-          email: user.email,
-          password,
-          avatar: user.image,
-        },
-        update: {
-          name: user.name ?? undefined,
-          avatar: user.image ?? undefined,
-        },
+      const email = user.email?.trim().toLowerCase();
+      const googleSub = account.providerAccountId?.trim();
+      if (!email || !googleSub) return false;
+
+      const bySub = await prisma.user.findUnique({ where: { googleSub } });
+      const byEmail = bySub
+        ? null
+        : await prisma.user.findUnique({ where: { email } });
+      const plan = planGoogleLink({
+        googleSub,
+        matchByGoogleSub: bySub ? { id: bySub.id } : null,
+        matchByEmail: byEmail ? { id: byEmail.id, googleSub: byEmail.googleSub } : null,
       });
+      if (plan.kind === "deny") return false;
+
+      const password = await bcrypt.hash(crypto.randomUUID(), 10);
+      if (plan.kind === "create") {
+        try {
+          await prisma.user.create({
+            data: {
+              name: user.name ?? email.split("@")[0],
+              email,
+              password,
+              avatar: user.image,
+              googleSub,
+            },
+          });
+        } catch (error) {
+          if (
+            typeof error === "object" &&
+            error !== null &&
+            "code" in error &&
+            (error as { code?: string }).code === "P2002"
+          ) {
+            return false;
+          }
+          throw error;
+        }
+        return true;
+      }
+
+      if (bySub && bySub.email.toLowerCase() !== email) {
+        const emailOwner = await prisma.user.findUnique({ where: { email } });
+        if (emailOwner && emailOwner.id !== bySub.id) return false;
+      }
+
+      try {
+        await prisma.user.update({
+          where: { id: plan.userId },
+          data: {
+            name: user.name ?? undefined,
+            avatar: user.image ?? undefined,
+            email,
+            googleSub,
+            ...(plan.revokeOtherSessions
+              ? { password, authVersion: { increment: 1 } }
+              : {}),
+          },
+        });
+      } catch (error) {
+        if (
+          typeof error === "object" &&
+          error !== null &&
+          "code" in error &&
+          (error as { code?: string }).code === "P2002"
+        ) {
+          return false;
+        }
+        throw error;
+      }
       return true;
     },
     async jwt({ token, user, account, trigger, session }) {
@@ -151,14 +210,26 @@ export const storefrontAuthOptions: NextAuthOptions = {
         session as { name?: string; email?: string; image?: string | null } | undefined
       );
 
-      if (account?.provider === "google" && token.email) {
-        const dbUser = await prisma.user.findUnique({ where: { email: String(token.email) } });
-        if (dbUser) {
-          token.sub = dbUser.id;
-          token.username = dbUser.username ?? undefined;
+      if (account?.provider === "google") {
+        const googleSub = account.providerAccountId?.trim();
+        const email = String(token.email ?? user?.email ?? "")
+          .trim()
+          .toLowerCase();
+        const dbUser = googleSub
+          ? await prisma.user.findUnique({ where: { googleSub } })
+          : null;
+        const resolved =
+          dbUser ?? (email ? await prisma.user.findUnique({ where: { email } }) : null);
+        if (resolved) {
+          token.sub = resolved.id;
+          token.email = resolved.email;
+          token.username = resolved.username ?? undefined;
           token.role = "USER";
-          token.picture = dbUser.avatar ?? token.picture;
-          if (dbUser.name) token.name = dbUser.name;
+          token.picture = resolved.avatar ?? token.picture;
+          token.authVersion = resolved.authVersion;
+          if (resolved.name) token.name = resolved.name;
+        } else {
+          token.sub = undefined;
         }
       } else if (token.sub && (trigger === "update" || !token.picture)) {
         // Sync uploaded avatar into JWT (login / session update)
@@ -169,6 +240,29 @@ export const storefrontAuthOptions: NextAuthOptions = {
         if (dbUser) {
           token.picture = dbUser.avatar ?? token.picture;
           if (dbUser.name) token.name = dbUser.name;
+        }
+      }
+
+      // Drop JWTs minted before a password reset or a Google adoption.
+      // Sign-in (`user` set) stamps the version that authorize/signIn just wrote.
+      if (token.sub) {
+        const fresh = await prisma.user.findUnique({
+          where: { id: String(token.sub) },
+          select: { authVersion: true, email: true, name: true },
+        });
+        if (!fresh) {
+          token.sub = undefined;
+          token.authVersion = undefined;
+        } else if (user) {
+          token.authVersion = fresh.authVersion;
+          token.email = fresh.email;
+          if (fresh.name) token.name = fresh.name;
+        } else if (!isCurrentAuthVersion(token.authVersion, fresh.authVersion)) {
+          token.sub = undefined;
+          token.authVersion = undefined;
+        } else {
+          token.email = fresh.email;
+          if (fresh.name) token.name = fresh.name;
         }
       }
       return token;
