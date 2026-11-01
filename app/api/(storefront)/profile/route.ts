@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { getStorefrontSession } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { isEmailChange } from "@/lib/storefront-auth-version";
 
 const updateSchema = z.object({
   name: z.string().trim().min(2).max(100),
@@ -52,11 +53,14 @@ export async function PATCH(request: Request) {
   const user = await prisma.user.findUnique({ where: { id: session.user.id } });
   if (!user) return NextResponse.json({ error: "Account not found." }, { status: 404 });
 
-  let password: string | undefined;
-  const emailOwner = await prisma.user.findUnique({ where: { email: parsed.data.email } });
-  if (emailOwner && emailOwner.id !== user.id) {
-    return NextResponse.json({ error: "This email is already used by another account." }, { status: 409 });
+  if (isEmailChange(user.email, parsed.data.email)) {
+    return NextResponse.json(
+      { error: "Email cannot be changed from the profile. Contact an admin." },
+      { status: 403 }
+    );
   }
+
+  let password: string | undefined;
   if (parsed.data.newPassword) {
     if (
       !parsed.data.currentPassword ||
@@ -71,10 +75,10 @@ export async function PATCH(request: Request) {
     where: { id: user.id },
     data: {
       name: parsed.data.name,
-      email: parsed.data.email,
       phone: parsed.data.phone || null,
       avatar: parsed.data.avatar || undefined,
       password,
+      ...(password ? { authVersion: { increment: 1 } } : {}),
     },
     select: { name: true, email: true, phone: true, avatar: true },
   });

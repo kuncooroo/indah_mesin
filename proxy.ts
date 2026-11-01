@@ -44,7 +44,7 @@ export async function proxy(req: NextRequest) {
       secret,
       cookieName: STOREFRONT_SESSION_COOKIE,
     });
-    if (!storefrontToken) {
+    if (!storefrontToken?.sub) {
       return NextResponse.redirect(new URL("/profile", req.url));
     }
   }

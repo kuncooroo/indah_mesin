@@ -110,6 +110,11 @@ model User {
   name               String
   email              String             @unique
   password           String
+  /// Google subject (`sub`). Set when this mailbox signs in with Google.
+  googleSub          String?            @unique
+  /// Bumped when the password is replaced or Google adopts an existing account.
+  /// Storefront JWTs must carry the same value or they are rejected.
+  authVersion        Int                @default(0)
   phone              String?
   avatar             String?            @db.Text
 
