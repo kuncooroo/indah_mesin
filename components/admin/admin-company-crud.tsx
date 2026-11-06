@@ -9,6 +9,7 @@ import {
   adminFormGridClass,
 } from "./admin-crud-ui";
 import type { ActionResult } from "@/lib/action-result";
+import { orderNoteForEditor } from "@/lib/order-notes";
 
 const companyTypeOptions = [
   { value: "BUYER", label: "Buyer (Pembeli)" },
@@ -164,7 +165,12 @@ export function OrderEditDialog({
           defaultValue={row.status}
           options={orderStatusOptions}
         />
-        <AdminFormField label="Catatan" name="notes" as="textarea" defaultValue={row.notes ?? ""} />
+        <AdminFormField
+          label="Catatan"
+          name="notes"
+          as="textarea"
+          defaultValue={orderNoteForEditor(row.notes)}
+        />
         <AdminSubmitButton label="Update" />
       </AdminActionForm>
     </AdminCrudDialog>

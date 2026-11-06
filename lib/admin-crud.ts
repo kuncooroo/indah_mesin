@@ -15,6 +15,7 @@ import { Prisma } from "@prisma/client";
 import { fail, ok, type ActionResult } from "@/lib/action-result";
 import { runAdminAction } from "@/lib/prisma-errors";
 import { parseNonNegativeDecimal, requireTrimmed } from "@/lib/admin/validation";
+import { mergeOrderNotes } from "@/lib/order-notes";
 
 async function requireAdmin() {
   const session = await getAdminSession();
@@ -646,19 +647,40 @@ export async function deleteCompanyAddress(id: string): Promise<ActionResult> {
 }
 
 // ——— Orders (PO) ———
+const ORDER_STATUSES: OrderStatus[] = [
+  "DRAFT",
+  "SUBMITTED_VIA_WA",
+  "NEGOTIATING",
+  "APPROVED",
+  "CANCELLED",
+];
+
 export async function updateOrder(formData: FormData): Promise<ActionResult> {
   return runAdminAction(async () => {
     await requireAdmin();
     const id = String(formData.get("id") ?? "");
     if (!id) return fail("ID tidak valid.");
+
+    const existing = await prisma.order.findUnique({
+      where: { id },
+      select: { notes: true },
+    });
+    if (!existing) return fail("Order tidak ditemukan.");
+
+    const status = String(formData.get("status") ?? "");
+    if (!ORDER_STATUSES.includes(status as OrderStatus)) {
+      return fail("Status order tidak valid.");
+    }
+
     await prisma.order.update({
       where: { id },
       data: {
-        status: String(formData.get("status") ?? "DRAFT") as OrderStatus,
-        notes: String(formData.get("notes") ?? "") || null,
+        status: status as OrderStatus,
+        notes: mergeOrderNotes(existing.notes, String(formData.get("notes") ?? "")),
       },
     });
     revalidatePath("/admin/orders");
+    revalidatePath(`/admin/orders/${id}`);
     return ok("Order berhasil diperbarui.");
   }, "Order berhasil diperbarui.");
 }
