@@ -2,6 +2,7 @@ import { getAdminSession, getStorefrontSession, isAdminRole } from "@/lib/auth";
 import { notFound, redirect } from "next/navigation";
 import { PoPdfToolbar, type PoDocumentData } from "./po-pdf-view";
 import { findProductById } from "@/lib/storefront/catalog";
+import { poTaxIdsFromNotes } from "@/lib/po-document-snapshot";
 import { prisma } from "@/lib/prisma";
 import { getPoBuyerContext } from "@/lib/storefront/po-buyer-context";
 
@@ -70,6 +71,10 @@ export default async function PoPreviewPdfPage({ searchParams }: PoPreviewPdfPag
     if (!order || !order.items[0]) notFound();
     const item = order.items[0];
     const snapshot = readOrderSnapshot(order.notes);
+    const taxIds = poTaxIdsFromNotes(order.notes, {
+      npwpNumber: order.company?.npwpNumber ?? buyer?.npwpNumber,
+      nibNumber: order.company?.nibNumber ?? buyer?.nibNumber,
+    });
     const priceLabel = new Intl.NumberFormat("id-ID", {
       style: "currency",
       currency: "IDR",
@@ -100,8 +105,8 @@ export default async function PoPreviewPdfPage({ searchParams }: PoPreviewPdfPag
           : buyer?.address ?? "—"),
       buyerEmail: order.user?.email ?? buyer?.email ?? "—",
       buyerPhone: snapshot.buyerPhone ?? order.user?.phone ?? buyer?.phone ?? "—",
-      buyerNpwp: order.company?.npwpNumber ?? buyer?.npwpNumber ?? "",
-      buyerNib: order.company?.nibNumber ?? buyer?.nibNumber ?? "",
+      buyerNpwp: taxIds.npwpNumber,
+      buyerNib: taxIds.nibNumber,
       quantity: item.quantity,
       voltage: snapshot.voltage,
       orderNumber: order.orderNumber,
